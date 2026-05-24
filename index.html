@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>ระบบติดตามดวงอาทิตย์สำหรับโซล่าเซลล์</title>
+    <title>ระบบวางแผนโซล่าเซลล์</title>
     
     <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
     
@@ -22,7 +22,7 @@
             display: flex;
             flex-wrap: wrap;
             gap: 20px;
-            max-width: 1000px;
+            max-width: 1100px;
             width: 100%;
             background: white;
             padding: 20px;
@@ -31,17 +31,17 @@
         }
         .panel {
             flex: 1;
-            min-width: 300px;
+            min-width: 350px;
         }
         #map {
             height: 400px;
             border-radius: 8px;
-            border: 1px solid #ddd;
+            border: 2px solid #2c3e50;
         }
         canvas {
             background: #fff;
             border-radius: 50%;
-            box-shadow: inset 0 0 10px rgba(0,0,0,0.05);
+            box-shadow: inset 0 0 10px rgba(0,0,0,0.1);
             border: 1px solid #ddd;
             display: block;
             margin: 0 auto;
@@ -57,13 +57,7 @@
         .data-card strong {
             color: #d97706;
         }
-        h2 { margin-top: 0; color: #2c3e50; }
-        .loading-location {
-            color: #0066cc;
-            font-weight: bold;
-            margin-bottom: 10px;
-            display: none;
-        }
+        h2 { margin-top: 0; color: #2c3e50; font-size: 1.4em; }
         .slider-container {
             background: #fff3cd;
             padding: 15px;
@@ -74,25 +68,71 @@
         input[type=range] {
             width: 100%;
             margin-top: 10px;
+            cursor: pointer;
+        }
+        
+        /* สไตล์สำหรับลูกศรบนแผนที่ */
+        .custom-arrow-container {
+            display: flex;
+            justify-content: center;
+            align-items: center;
+        }
+        .roof-arrow {
+            width: 50px;
+            height: 50px;
+            transition: transform 0.1s ease-out;
+            filter: drop-shadow(0px 4px 4px rgba(0,0,0,0.6));
+        }
+
+        /* ปุ่มและสถานะ */
+        .controls-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 10px;
+        }
+        .gps-btn {
+            background-color: #0066cc;
+            color: white;
+            border: none;
+            padding: 8px 12px;
+            border-radius: 5px;
+            cursor: pointer;
+            font-family: inherit;
+        }
+        .gps-btn:hover { background-color: #0052a3; }
+        .save-status {
+            color: #28a745;
+            font-size: 0.9em;
+            font-weight: bold;
+            opacity: 0;
+            transition: opacity 0.3s;
         }
     </style>
 </head>
 <body>
 
-    <h1>☀️ โปรแกรมคำนวณมุมดวงอาทิตย์</h1>
-    <p>ระบบจะดึงตำแหน่งปัจจุบันของคุณอัตโนมัติ หรือคลิกบนแผนที่เพื่อเปลี่ยนตำแหน่ง</p>
-    <div id="locationStatus" class="loading-location">กำลังค้นหาตำแหน่งของคุณ...</div>
+    <h1 style="text-align: center;">☀️ เครื่องมือดูทิศทางแดดสำหรับหลังคาบ้าน</h1>
+    <p style="text-align: center; max-width: 800px;">
+        ค้นหาบ้านตัวเองบนแผนที่ แล้ว<strong>ปรับลูกศรให้ชี้ไปทางเดียวกับหน้าบ้านหรือแผงโซล่าเซลล์</strong><br>
+        ระบบจะบันทึกค่าอัตโนมัติเพื่อให้คุณกลับมาดูได้อีกครั้งโดยไม่ต้องตั้งค่าใหม่
+    </p>
 
     <div class="container">
-        <!-- ด้านซ้าย: แผนที่และการตั้งค่า -->
+        <!-- ด้านซ้าย: แผนที่ดาวเทียมและการวัดหลังคา -->
         <div class="panel">
-            <h2>1. ตำแหน่ง & ทิศหน้าบ้าน</h2>
+            <div class="controls-header">
+                <h2>1. เล็งทิศหน้าบ้านบนหลังคา</h2>
+                <button class="gps-btn" onclick="getUserLocation()">📍 ดึงตำแหน่ง GPS</button>
+            </div>
             
             <div class="slider-container">
-                <label for="houseHeading"><strong>ตั้งค่าทิศที่แผง/หน้าบ้านหันไป:</strong> <span id="headingVal">ทิศใต้ (180°)</span></label>
+                <label for="houseHeading">
+                    <strong>หมุนลูกศรให้ตรงกับหน้าบ้าน:</strong> <span id="headingVal">ทิศใต้ (180°)</span>
+                </label>
+                <span id="saveIndicator" class="save-status">💾 บันทึกแล้ว</span>
                 <br>
                 <input type="range" id="houseHeading" min="0" max="360" value="180" step="1">
-                <small style="color: #666;">เลื่อนเพื่อหมุนโดมให้ตรงกับหน้าบ้านคุณ (ด้านบนของโดมคือทิศที่คุณหันหน้าไป)</small>
             </div>
 
             <div id="map"></div>
@@ -102,13 +142,13 @@
             </div>
         </div>
 
-        <!-- ด้านขวา: โดมจำลองท้องฟ้าแบบหมุนตามบ้าน -->
+        <!-- ด้านขวา: โดมจำลองท้องฟ้า -->
         <div class="panel">
-            <h2>2. มุมมองจากหน้าบ้าน</h2>
+            <h2>2. มุมมองท้องฟ้า (อิงจากหลังคาบ้านคุณ)</h2>
             <canvas id="sunCanvas" width="400" height="400"></canvas>
-            <p style="text-align: center; color: #666; font-size: 0.9em; margin-top: 10px;">
-                🔺 ด้านบนสุดคือ <strong>หน้าบ้าน</strong><br>
-                จุดศูนย์กลาง = ตรงศีรษะ (มุมเงย 90°)
+            <p style="text-align: center; color: #666; font-size: 0.9em; margin-top: 15px;">
+                🔺 ด้านบนสุดคือ <strong>ทิศที่ลูกศรชี้ไป (หน้าบ้าน)</strong><br>
+                เส้นสีส้มคือเส้นทางที่ดวงอาทิตย์วิ่งผ่านในวันนี้
             </p>
         </div>
     </div>
@@ -118,62 +158,111 @@
     <script src="https://cdnjs.cloudflare.com/ajax/libs/suncalc/1.9.0/suncalc.min.js"></script>
 
     <script>
-        let lat = 18.7441;
-        let lng = 99.1226;
-        let currentDate = new Date();
-        let houseHeading = 180; // ค่าเริ่มต้น: สมมติว่าบ้านหันหน้าทิศใต้ (เหมาะกับโซล่าเซลล์ในไทย)
+        // --- 0. โหลดข้อมูลที่บันทึกไว้ (ถ้ามี) ---
+        let lat = parseFloat(localStorage.getItem('solar_lat')) || 18.7441;
+        let lng = parseFloat(localStorage.getItem('solar_lng')) || 99.1226;
+        let houseHeading = parseInt(localStorage.getItem('solar_heading'));
+        if (isNaN(houseHeading)) houseHeading = 180;
 
-        // ตั้งค่าตัวเลื่อนทิศทางบ้าน
+        let currentDate = new Date();
         const directions = ["เหนือ", "ตะวันออกเฉียงเหนือ", "ตะวันออก", "ตะวันออกเฉียงใต้", "ใต้", "ตะวันตกเฉียงใต้", "ตะวันตก", "ตะวันตกเฉียงเหนือ"];
         
+        // ตั้งค่าแถบสไลเดอร์ให้ตรงกับค่าที่โหลดมา
+        document.getElementById('houseHeading').value = houseHeading;
+
+        // --- 1. ตั้งค่าแผนที่ Leaflet ---
+        const map = L.map('map').setView([lat, lng], 18); 
+        L.tileLayer('https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/{z}/{y}/{x}', {
+            attribution: 'Tiles &copy; Esri &mdash; Source: Esri',
+            maxZoom: 19
+        }).addTo(map);
+
+        const arrowSvg = `
+            <svg viewBox="0 0 100 100" xmlns="http://www.w3.org/2000/svg">
+                <circle cx="50" cy="50" r="45" fill="rgba(255, 255, 255, 0.2)" stroke="#fff" stroke-width="2" stroke-dasharray="4"/>
+                <path d="M50 5 L85 85 L50 70 L15 85 Z" fill="#FFD700" stroke="#000" stroke-width="3"/>
+                <circle cx="50" cy="65" r="5" fill="#e74c3c" />
+            </svg>
+        `;
+        
+        const customArrowIcon = L.divIcon({
+            // ใส่หมุนลูกศรตั้งต้นตามค่าที่โหลดมา
+            html: `<div class="custom-arrow-container"><div id="map-arrow" class="roof-arrow" style="transform: rotate(${houseHeading}deg);">${arrowSvg}</div></div>`,
+            className: '', 
+            iconSize: [50, 50],
+            iconAnchor: [25, 35] 
+        });
+
+        let marker = L.marker([lat, lng], {icon: customArrowIcon}).addTo(map);
+
+        // --- 2. ระบบบันทึกอัตโนมัติ (Auto Save) ---
+        let saveTimeout;
+        function saveSettings() {
+            localStorage.setItem('solar_lat', lat);
+            localStorage.setItem('solar_lng', lng);
+            localStorage.setItem('solar_heading', houseHeading);
+            
+            // แสดงสถานะว่าบันทึกแล้ว
+            const indicator = document.getElementById('saveIndicator');
+            indicator.style.opacity = '1';
+            clearTimeout(saveTimeout);
+            saveTimeout = setTimeout(() => { indicator.style.opacity = '0'; }, 2000);
+        }
+
+        // --- 3. ฟังก์ชันควบคุมต่างๆ ---
+        map.on('click', function(e) {
+            lat = e.latlng.lat;
+            lng = e.latlng.lng;
+            marker.setLatLng([lat, lng]);
+            saveSettings();
+            updateTracker();
+        });
+
         function updateHeadingLabel() {
             let val = parseInt(document.getElementById('houseHeading').value);
             houseHeading = val;
+            
             let dirIndex = Math.round(val / 45) % 8;
             document.getElementById('headingVal').innerText = `ทิศ${directions[dirIndex]} (${val}°)`;
+            
+            const arrowEl = document.getElementById('map-arrow');
+            if (arrowEl) {
+                arrowEl.style.transform = `rotate(${val}deg)`;
+            }
+
+            saveSettings();
             updateTracker();
         }
 
         document.getElementById('houseHeading').addEventListener('input', updateHeadingLabel);
 
-        // แผนที่
-        const map = L.map('map').setView([lat, lng], 13);
-        L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
-            attribution: '© OpenStreetMap contributors'
-        }).addTo(map);
-        let marker = L.marker([lat, lng]).addTo(map);
-
-        map.on('click', function(e) {
-            lat = e.latlng.lat;
-            lng = e.latlng.lng;
-            marker.setLatLng([lat, lng]);
-            updateTracker();
-        });
-
         function getUserLocation() {
-            const statusEl = document.getElementById('locationStatus');
+            const btn = document.querySelector('.gps-btn');
+            btn.innerText = "⏳ กำลังค้นหา...";
+            
             if (navigator.geolocation) {
-                statusEl.style.display = 'block';
                 navigator.geolocation.getCurrentPosition(
                     function(position) {
                         lat = position.coords.latitude;
                         lng = position.coords.longitude;
-                        map.setView([lat, lng], 14);
+                        map.setView([lat, lng], 18);
                         marker.setLatLng([lat, lng]);
-                        statusEl.style.display = 'none';
+                        saveSettings();
                         updateTracker();
+                        btn.innerText = "📍 ดึงตำแหน่ง GPS";
                     },
                     function(error) {
-                        statusEl.style.display = 'none';
-                        updateTracker();
+                        alert("ไม่สามารถเข้าถึงตำแหน่ง GPS ได้ กรุณาตรวจสอบการตั้งค่าเบราว์เซอร์");
+                        btn.innerText = "📍 ดึงตำแหน่ง GPS";
                     },
-                    { timeout: 10000 }
+                    { enableHighAccuracy: true, timeout: 10000 }
                 );
             } else {
-                updateTracker();
+                alert("เบราว์เซอร์ของคุณไม่รองรับการดึงตำแหน่ง");
             }
         }
 
+        // --- 4. ฟังก์ชันคำนวณและวาด (อัปเดตข้อความให้อ่านตอนเปิดเว็บครั้งแรกได้ถูกต้อง) ---
         function updateTracker() {
             currentDate = new Date(); 
             const times = SunCalc.getTimes(currentDate, lat, lng);
@@ -182,17 +271,16 @@
             const azimuth = (pos.azimuth * 180 / Math.PI + 180) % 360;
             const altitude = pos.altitude * 180 / Math.PI;
 
-            // หามุมสัมพัทธ์ระหว่างพระอาทิตย์กับหน้าบ้าน
             let relativeAzimuth = (azimuth - houseHeading + 360) % 360;
-            let relativeText = "อยู่ด้านหน้า";
-            if (relativeAzimuth > 90 && relativeAzimuth < 270) relativeText = "อยู่ด้านหลัง";
-            if (relativeAzimuth >= 270) relativeText = "อยู่ค่อนไปทางซ้าย";
-            if (relativeAzimuth > 0 && relativeAzimuth <= 90) relativeText = "อยู่ค่อนไปทางขวา";
+            let relativeText = "อยู่ด้านหน้า (โดนแผงเต็มๆ)";
+            if (relativeAzimuth > 100 && relativeAzimuth < 260) relativeText = "อยู่ด้านหลังบ้าน (ไม่โดนแผง)";
+            else if (relativeAzimuth >= 260) relativeText = "อยู่ค่อนไปทางซ้ายของแผง";
+            else if (relativeAzimuth > 0 && relativeAzimuth <= 100) relativeText = "อยู่ค่อนไปทางขวาของแผง";
 
             document.getElementById('sunData').innerHTML = `
-                <strong>มุมทิศดวงอาทิตย์:</strong> ${azimuth.toFixed(1)}° (เทียบเข็มทิศจริง)<br>
-                <strong>มุมเงย:</strong> ${altitude.toFixed(1)}° <br>
-                <strong style="color: #d32f2f;">ตำแหน่งเทียบกับบ้าน: ${relativeText}</strong><br>
+                <strong>ทิศพระอาทิตย์จริง:</strong> ${azimuth.toFixed(1)}° <br>
+                <strong>มุมเงยพระอาทิตย์:</strong> ${altitude.toFixed(1)}° <br>
+                <strong style="color: #d32f2f;">สถานะแสงตอนนี้: ${altitude > 0 ? relativeText : "ดวงอาทิตย์ตกไปแล้ว"}</strong><br>
                 <hr style="border:0; border-top:1px solid #ccc; margin:10px 0;">
                 <strong>ขึ้น:</strong> ${times.sunrise.toLocaleTimeString('th-TH')} น. | 
                 <strong>ตก:</strong> ${times.sunset.toLocaleTimeString('th-TH')} น.
@@ -201,9 +289,7 @@
             drawSkyDome(azimuth, altitude);
         }
 
-        // ฟังก์ชันแปลง มุม(องศา) และ รัศมี เป็นพิกัด X, Y บน Canvas (รวมการชดเชยทิศบ้าน)
         function getXY(cx, cy, r, az) {
-            // -90 เพื่อให้มุม 0 อยู่ด้านบน, ลบ houseHeading เพื่อหมุนโดม
             let rad = (az - houseHeading - 90) * Math.PI / 180;
             return {
                 x: cx + r * Math.cos(rad),
@@ -216,11 +302,10 @@
             const ctx = canvas.getContext('2d');
             const cx = canvas.width / 2;
             const cy = canvas.height / 2;
-            const maxR = Math.min(cx, cy) - 30; // ลดรัศมีลงหน่อยเพื่อเว้นที่ให้ตัวอักษร
+            const maxR = Math.min(cx, cy) - 30;
 
             ctx.clearRect(0, 0, canvas.width, canvas.height);
 
-            // วาดเส้นตารางมุมเงย
             ctx.lineWidth = 1;
             for(let alt = 0; alt <= 90; alt += 30) {
                 ctx.beginPath();
@@ -230,24 +315,22 @@
                 ctx.stroke();
             }
 
-            // วาดกากบาทแบ่ง 4 ส่วน
             ctx.beginPath();
             ctx.moveTo(cx, cy - maxR); ctx.lineTo(cx, cy + maxR);
             ctx.moveTo(cx - maxR, cy); ctx.lineTo(cx + maxR, cy);
             ctx.strokeStyle = '#eee';
             ctx.stroke();
 
-            // วาดตัวอักษรทิศ (N, E, S, W) โดยให้หมุนตามทิศบ้าน
             ctx.fillStyle = '#666';
             ctx.font = 'bold 14px Arial';
             ctx.textAlign = 'center';
             ctx.textBaseline = 'middle';
             
             const labels = [
-                { text: 'N (เหนือ)', az: 0 },
-                { text: 'E (ออก)', az: 90 },
-                { text: 'S (ใต้)', az: 180 },
-                { text: 'W (ตก)', az: 270 }
+                { text: 'N', az: 0 },
+                { text: 'E', az: 90 },
+                { text: 'S', az: 180 },
+                { text: 'W', az: 270 }
             ];
 
             labels.forEach(l => {
@@ -255,7 +338,6 @@
                 ctx.fillText(l.text, pos.x, pos.y);
             });
 
-            // วาดเส้นทางดวงอาทิตย์ทั้งวัน
             ctx.beginPath();
             ctx.strokeStyle = 'rgba(255, 165, 0, 0.4)';
             ctx.lineWidth = 4;
@@ -264,11 +346,9 @@
             for(let minutes = 0; minutes < 24 * 60; minutes += 15) {
                 let testDate = new Date(currentDate);
                 testDate.setHours(0, minutes, 0, 0);
-                
                 let p = SunCalc.getPosition(testDate, lat, lng);
                 let a = p.altitude * 180 / Math.PI;
                 if(a < 0) continue; 
-                
                 let az = (p.azimuth * 180 / Math.PI + 180);
                 let r = maxR * (1 - a/90);
                 let pos = getXY(cx, cy, r, az);
@@ -282,7 +362,6 @@
             }
             ctx.stroke();
 
-            // วาดตำแหน่งดวงอาทิตย์ปัจจุบัน
             if (currentAltitude > 0) {
                 let r = maxR * (1 - currentAltitude/90);
                 let pos = getXY(cx, cy, r, currentAzimuth);
@@ -298,19 +377,20 @@
                 ctx.fill();
             }
 
-            // วาดสัญลักษณ์ "หน้าบ้าน" ตรงกลาง
             ctx.fillStyle = '#2c3e50';
             ctx.beginPath();
-            // วาดลูกศรชี้ขึ้นตรงกลาง
-            ctx.moveTo(cx, cy - 10); // ปลายศร
-            ctx.lineTo(cx + 8, cy + 5);
-            ctx.lineTo(cx - 8, cy + 5);
+            ctx.moveTo(cx, cy - 12); 
+            ctx.lineTo(cx + 10, cy + 8);
+            ctx.lineTo(cx - 10, cy + 8);
             ctx.fill();
-            ctx.fillRect(cx - 3, cy + 5, 6, 8); // ฐาน
         }
 
-        updateHeadingLabel();
-        getUserLocation();
+        // --- 5. เริ่มต้นการทำงานทันที ---
+        // ซิงค์ข้อความ Label ให้ตรงกับค่าที่โหลดมาในตอนแรก
+        let initialDirIndex = Math.round(houseHeading / 45) % 8;
+        document.getElementById('headingVal').innerText = `ทิศ${directions[initialDirIndex]} (${houseHeading}°)`;
+        
+        updateTracker();
         setInterval(updateTracker, 60000); 
 
     </script>
