@@ -3,25 +3,28 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>ระบบประเมินโซล่าเซลล์ V.5 (Weather & Time)</title>
+    <title>ระบบจำลองโซล่าเซลล์อัจฉริยะ (V.5.1 Mobile Fix)</title>
     
     <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
     
     <style>
+        /* กฎเหล็กของ Responsive กันกล่องล้นจอ */
+        * { box-sizing: border-box; }
+
         body {
             font-family: 'Sarabun', 'Segoe UI', Tahoma, sans-serif;
-            background-color: #f0f2f5; color: #333; margin: 0; padding: 20px;
+            background-color: #f0f2f5; color: #333; margin: 0; padding: 15px;
             display: flex; flex-direction: column; align-items: center;
         }
         .container {
-            display: flex; flex-wrap: wrap; gap: 20px; max-width: 1200px; width: 100%; margin-bottom: 20px;
+            display: flex; flex-wrap: wrap; gap: 15px; max-width: 1200px; width: 100%; margin-bottom: 20px;
         }
-        .panel { flex: 1; min-width: 380px; background: white; padding: 20px; border-radius: 12px; box-shadow: 0 4px 15px rgba(0,0,0,0.05); }
+        .panel { flex: 1; min-width: 320px; background: white; padding: 20px; border-radius: 12px; box-shadow: 0 4px 15px rgba(0,0,0,0.05); }
         
-        #map { height: 300px; border-radius: 8px; border: 2px solid #2c3e50; margin-bottom: 15px; }
+        #map { height: 300px; border-radius: 8px; border: 2px solid #2c3e50; margin-bottom: 15px; width: 100%; }
         canvas {
             background: #fff; border-radius: 50%; box-shadow: inset 0 0 10px rgba(0,0,0,0.1);
-            border: 1px solid #ddd; display: block; margin: 0 auto;
+            border: 1px solid #ddd; display: block; margin: 0 auto; max-width: 100%; height: auto;
         }
         
         /* สไตล์รายการแผง */
@@ -29,13 +32,20 @@
             background: #f8f9fa; border: 1px solid #dee2e6; border-left: 5px solid #0066cc;
             padding: 15px; border-radius: 8px; margin-bottom: 15px; position: relative;
         }
-        .array-card h3 { margin: 0 0 10px 0; font-size: 1.1em; color: #0066cc; display: flex; justify-content: space-between;}
-        .delete-btn { background: #dc3545; color: white; border: none; border-radius: 4px; padding: 3px 8px; cursor: pointer; font-size: 0.8em; }
+        .array-card h3 { margin: 0 0 10px 0; font-size: 1.1em; color: #0066cc; display: flex; justify-content: space-between; align-items: center;}
+        .delete-btn { background: #dc3545; color: white; border: none; border-radius: 4px; padding: 5px 10px; cursor: pointer; font-size: 0.8em; }
+        
         .spec-grid { display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 10px; margin-bottom: 10px; }
         .spec-input { display: flex; flex-direction: column; font-size: 0.85em; }
-        .spec-input input { padding: 6px; border: 1px solid #ccc; border-radius: 4px; margin-top: 3px; font-family: inherit;}
+        .spec-input input { width: 100%; padding: 8px; border: 1px solid #ccc; border-radius: 4px; margin-top: 3px; font-family: inherit;}
         
-        .slider-box { background: #fff3cd; padding: 10px; border-radius: 6px; font-size: 0.9em;}
+        /* ปรับ Layout ให้เข้ากับมือถือ */
+        @media (max-width: 480px) {
+            .spec-grid { grid-template-columns: 1fr 1fr; }
+            .spec-grid .spec-input:nth-child(3) { grid-column: span 2; } /* ให้ช่องที่ 3 ขยายเต็ม 2 คอลัมน์ */
+        }
+        
+        .slider-box { background: #fff3cd; padding: 12px; border-radius: 6px; font-size: 0.9em;}
         input[type=range] { width: 100%; margin-top: 8px; cursor: pointer; }
 
         .add-array-btn {
@@ -47,14 +57,13 @@
 
         /* สไตล์ส่วน Weather & Time */
         .sim-panel { background: #e8f4f8; border: 1px solid #bee5eb; }
-        .live-btn { background: #17a2b8; color: white; border: none; padding: 5px 10px; border-radius: 4px; cursor: pointer; font-size: 0.8em; float: right; }
+        .live-btn { background: #17a2b8; color: white; border: none; padding: 6px 12px; border-radius: 4px; cursor: pointer; font-size: 0.85em; float: right; margin-top: -3px;}
         
-        .grand-total { background: #d4edda; border: 1px solid #c3e6cb; padding: 20px; border-radius: 8px; color: #155724; width: 100%; box-sizing: border-box; text-align: center;}
-        .data-highlight { font-weight: bold; color: #d97706; }
+        .grand-total { background: #d4edda; border: 1px solid #c3e6cb; padding: 20px; border-radius: 8px; color: #155724; width: 100%; text-align: center;}
         
-        h2 { margin-top: 0; color: #2c3e50; font-size: 1.3em; border-bottom: 2px solid #f0f2f5; padding-bottom: 10px;}
-        .controls-header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 10px; }
-        .gps-btn { background: #6c757d; color: white; border: none; padding: 6px 12px; border-radius: 5px; cursor: pointer; font-size:0.9em;}
+        h2 { margin-top: 0; color: #2c3e50; font-size: 1.2em; border-bottom: 2px solid #f0f2f5; padding-bottom: 10px; line-height: 1.4;}
+        .controls-header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 10px; flex-wrap: wrap; gap: 10px;}
+        .gps-btn { background: #6c757d; color: white; border: none; padding: 8px 15px; border-radius: 5px; cursor: pointer; font-size:0.9em;}
         
         .custom-arrow-container { display: flex; justify-content: center; align-items: center; }
         .roof-arrow { width: 44px; height: 44px; transition: transform 0.1s ease-out; filter: drop-shadow(0px 2px 3px rgba(0,0,0,0.5)); }
@@ -63,15 +72,15 @@
 </head>
 <body>
 
-    <h1 style="text-align: center; color: #2c3e50; margin-bottom: 5px;">☀️ ระบบจำลองโซล่าเซลล์อัจฉริยะ (V.5)</h1>
-    <p style="text-align: center; color: #666; max-width: 800px; margin-top: 0; margin-bottom: 20px;">
+    <h1 style="text-align: center; color: #2c3e50; margin-bottom: 5px; font-size: 1.5em;">☀️ ระบบจำลองโซล่าเซลล์</h1>
+    <p style="text-align: center; color: #666; max-width: 800px; margin-top: 0; margin-bottom: 20px; font-size: 0.9em;">
         ลากแถบเวลาเพื่อดูดวงอาทิตย์วิ่งผ่านบ้านคุณ พร้อมคำนวณการผลิตไฟตามสภาพอากาศ
     </p>
 
     <div class="container">
         <div class="panel">
             <div class="controls-header">
-                <h2>1. ตำแหน่ง & ชุดแผง (Location & Arrays)</h2>
+                <h2 style="margin: 0; border: none; padding: 0;">1. ตำแหน่ง & ชุดแผง</h2>
                 <button class="gps-btn" onclick="getUserLocation()">📍 อัปเดต GPS</button>
             </div>
             <div id="map"></div>
@@ -93,17 +102,15 @@
             <h2>3. สภาพอากาศ (Weather)</h2>
             <p style="font-size: 0.9em; margin-bottom: 5px;">ปริมาณเมฆบังแสงอาทิตย์: <strong id="cloudLabel" style="color:#0066cc;">ฟ้าโปร่ง (0%)</strong></p>
             <input type="range" id="cloudSlider" min="0" max="100" value="0" step="10" oninput="updateSimulation()">
-            <small style="color:#666;">ยิ่งเมฆเยอะ แดดยิ่งน้อย ประสิทธิภาพการผลิตไฟจะลดลง</small>
         </div>
 
         <div class="panel sim-panel">
             <h2>
-                4. จำลองเวลา (Time Simulator)
+                4. จำลองเวลา
                 <button class="live-btn" id="btnLive" onclick="setLiveTime()">⌚ กลับไปเวลาจริง</button>
             </h2>
-            <p style="font-size: 0.9em; margin-bottom: 5px;">เวลาที่กำลังคำนวณ: <strong id="timeLabel" style="color:#d97706; font-size: 1.2em;">--:-- น.</strong></p>
+            <p style="font-size: 0.9em; margin-bottom: 5px;">เวลาที่กำลังคำนวณ: <strong id="timeLabel" style="color:#d97706; font-size: 1.1em;">--:-- น.</strong></p>
             <input type="range" id="timeSlider" min="0" max="1439" value="720" step="15" oninput="handleTimeSlider()">
-            <small style="color:#666;">ลากแถบนี้เพื่อดูว่าดวงอาทิตย์แต่ละช่วงเวลา ผลิตไฟได้เท่าไหร่</small>
         </div>
     </div>
 
@@ -111,21 +118,21 @@
         <div class="panel" style="padding: 0;">
             <div class="grand-total">
                 <h2 style="margin: 0 0 10px 0; border-bottom: 1px solid #c3e6cb; padding-bottom: 5px; color:#155724;">5. สรุปพยากรณ์ไฟฟ้า (Expected Power)</h2>
-                <div style="display: flex; flex-wrap: wrap; justify-content: space-around; margin-top: 15px;">
-                    <div style="margin: 10px;">
-                        <span style="font-size: 0.9em; color:#444;">สเปคติดตั้งรวมทั้งหมด</span><br>
-                        <strong style="font-size: 1.5em; color:#333;" id="txtMaxKw">0.00 kW</strong>
+                <div style="display: flex; flex-wrap: wrap; justify-content: space-around; margin-top: 15px; gap: 10px;">
+                    <div style="flex: 1; min-width: 140px; margin: 5px;">
+                        <span style="font-size: 0.85em; color:#444;">สเปคติดตั้งรวม</span><br>
+                        <strong style="font-size: 1.3em; color:#333;" id="txtMaxKw">0.00 kW</strong>
                     </div>
-                    <div style="margin: 10px; background: white; padding: 10px 20px; border-radius: 8px; box-shadow: 0 2px 5px rgba(0,0,0,0.05);">
-                        <span style="font-size: 0.9em; color:#444;">กำลังผลิต ณ เวลา <span id="txtSimTime">--:--</span></span><br>
-                        <strong style="font-size: 2em; color:#d97706;" id="txtLiveKw">0.00 kW</strong>
+                    <div style="flex: 1; min-width: 160px; margin: 5px; background: white; padding: 10px; border-radius: 8px; box-shadow: 0 2px 5px rgba(0,0,0,0.05);">
+                        <span style="font-size: 0.85em; color:#444;">กำลังผลิต เวลา <span id="txtSimTime">--:--</span></span><br>
+                        <strong style="font-size: 1.8em; color:#d97706;" id="txtLiveKw">0.00 kW</strong>
                     </div>
-                    <div style="margin: 10px;">
-                        <span style="font-size: 0.9em; color:#444;">คาดการณ์ทั้งวัน (อิงสภาพอากาศนี้)</span><br>
-                        <strong style="font-size: 1.5em; color:#155724;" id="txtDailyKwh">0.0 หน่วย</strong>
+                    <div style="flex: 1; min-width: 140px; margin: 5px;">
+                        <span style="font-size: 0.85em; color:#444;">คาดการณ์ทั้งวัน</span><br>
+                        <strong style="font-size: 1.3em; color:#155724;" id="txtDailyKwh">0.0 หน่วย</strong>
                     </div>
                 </div>
-                <div id="arrayBreakdown" style="font-size: 0.9em; color:#555; margin-top: 15px; border-top: 1px dashed #c3e6cb; padding-top: 10px;">
+                <div id="arrayBreakdown" style="font-size: 0.85em; color:#555; margin-top: 15px; border-top: 1px dashed #c3e6cb; padding-top: 10px; line-height: 1.6;">
                     </div>
             </div>
         </div>
@@ -135,23 +142,19 @@
     <script src="https://cdnjs.cloudflare.com/ajax/libs/suncalc/1.9.0/suncalc.min.js"></script>
 
     <script>
-        // --- 1. ข้อมูล State ---
         let lat = parseFloat(localStorage.getItem('solar_lat')) || 18.7441;
         let lng = parseFloat(localStorage.getItem('solar_lng')) || 99.1226;
         let defaultArrays = [
-            { id: 1, count: 5, watt: 650, tilt: 15, heading: 180 }, 
-            { id: 2, count: 10, watt: 630, tilt: 15, heading: 90 }  
+            { id: 1, count: 5, watt: 650, tilt: 15, heading: 217 }, 
+            { id: 2, count: 10, watt: 630, tilt: 15, heading: 134 }  
         ];
         let arrays = JSON.parse(localStorage.getItem('solar_arrays_multi')) || defaultArrays;
         const dirs = ["เหนือ", "ต.อ.เฉียงเหนือ", "ตะวันออก", "ต.อ.เฉียงใต้", "ใต้", "ต.ต.เฉียงใต้", "ตะวันตก", "ต.ต.เฉียงเหนือ"];
         let mapMarkers = [];
-
-        // State สำหรับเวลาและสภาพอากาศ
         let isLiveTime = true;
         let targetDate = new Date();
-        let cloudCover = 0; // 0 ถึง 100
+        let cloudCover = 0; 
 
-        // --- 2. แผนที่ Leaflet ---
         const map = L.map('map').setView([lat, lng], 18); 
         L.tileLayer('https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/{z}/{y}/{x}', { maxZoom: 19 }).addTo(map);
 
@@ -165,7 +168,6 @@
             }
         }
 
-        // --- 3. UI ชุดแผง ---
         function renderArrayList() {
             const container = document.getElementById('arraysList');
             container.innerHTML = '';
@@ -173,14 +175,14 @@
                 let dirName = dirs[Math.round(arr.heading / 45) % 8];
                 const html = `
                 <div class="array-card">
-                    <h3>ชุดแผงที่ ${index+1} ${arrays.length > 1 ? `<button class="delete-btn" onclick="removeArray(${arr.id})">ลบ</button>` : ''}</h3>
+                    <h3>ชุดแผงที่ ${index+1} ${arrays.length > 1 ? `<button class="delete-btn" onclick="removeArray(${arr.id})">ลบชุดนี้</button>` : ''}</h3>
                     <div class="spec-grid">
-                        <div class="spec-input"><label>จำนวน</label><input type="number" data-id="${arr.id}" data-field="count" value="${arr.count}"></div>
-                        <div class="spec-input"><label>วัตต์ (W)</label><input type="number" data-id="${arr.id}" data-field="watt" value="${arr.watt}"></div>
+                        <div class="spec-input"><label>จำนวน (แผง)</label><input type="number" data-id="${arr.id}" data-field="count" value="${arr.count}"></div>
+                        <div class="spec-input"><label>วัตต์/แผง (W)</label><input type="number" data-id="${arr.id}" data-field="watt" value="${arr.watt}"></div>
                         <div class="spec-input"><label>ความเอียง (°)</label><input type="number" data-id="${arr.id}" data-field="tilt" value="${arr.tilt}"></div>
                     </div>
                     <div class="slider-box">
-                        <label><strong>ทิศ:</strong> <span id="lbl-heading-${arr.id}" style="color:#d97706;">ทิศ${dirName} (${arr.heading}°)</span></label>
+                        <label><strong>ทิศที่แผงหันไป:</strong> <span id="lbl-heading-${arr.id}" style="color:#d97706;">ทิศ${dirName} (${arr.heading}°)</span></label>
                         <input type="range" data-id="${arr.id}" data-field="heading" value="${arr.heading}" min="0" max="360" step="1">
                     </div>
                 </div>`;
@@ -209,13 +211,12 @@
 
         function saveData() { localStorage.setItem('solar_lat', lat); localStorage.setItem('solar_lng', lng); localStorage.setItem('solar_arrays_multi', JSON.stringify(arrays)); }
 
-        // --- 4. ระบบจำลอง เวลา & อากาศ ---
         function handleTimeSlider() {
             isLiveTime = false;
             let mins = parseInt(document.getElementById('timeSlider').value);
             targetDate = new Date();
             targetDate.setHours(Math.floor(mins/60), mins % 60, 0, 0);
-            document.getElementById('btnLive').style.background = '#dc3545'; // เปลี่ยนปุ่มเป็นสีแดงเตือนว่าไม่ได้อยู่เวลาจริง
+            document.getElementById('btnLive').style.background = '#dc3545';
             updateSimulation();
         }
 
@@ -225,7 +226,6 @@
             updateSimulation();
         }
 
-        // --- 5. ฟังก์ชันคำนวณหลัก ---
         function getIncidenceFactor(sunAlt, sunAz, panelTilt, panelAz) {
             if (sunAlt <= 0) return 0; 
             let aAlt = sunAlt * Math.PI / 180; let aAz = sunAz * Math.PI / 180;
@@ -235,29 +235,23 @@
         }
 
         function updateSimulation() {
-            // อัปเดตเวลา
             if (isLiveTime) targetDate = new Date();
             let hrs = targetDate.getHours().toString().padStart(2, '0');
             let mns = targetDate.getMinutes().toString().padStart(2, '0');
             document.getElementById('timeLabel').innerText = `${hrs}:${mns} น. ${isLiveTime ? '(เวลาจริง)' : '(จำลอง)'}`;
-            document.getElementById('txtSimTime').innerText = `${hrs}:${mns} น.`;
+            document.getElementById('txtSimTime').innerText = `${hrs}:${mns}`;
             if (isLiveTime) document.getElementById('timeSlider').value = targetDate.getHours() * 60 + targetDate.getMinutes();
 
-            // อัปเดตเมฆ
             cloudCover = parseInt(document.getElementById('cloudSlider').value);
             let cloudText = cloudCover === 0 ? "ฟ้าโปร่ง" : cloudCover < 50 ? "มีเมฆบางส่วน" : cloudCover < 80 ? "เมฆมาก" : "ฝนตก/ครึ้มหนัก";
             document.getElementById('cloudLabel').innerText = `${cloudText} (${cloudCover}%)`;
-            
-            // สูตรเมฆ: 100% เมฆ = ประสิทธิภาพเหลือ 20%
             let weatherFactor = 1 - (cloudCover * 0.008); 
 
-            // คำนวณแสง
             const pos = SunCalc.getPosition(targetDate, lat, lng);
             const sunAz = (pos.azimuth * 180 / Math.PI + 180) % 360;
             const sunAlt = pos.altitude * 180 / Math.PI;
-            const systemDerate = 0.80; // Loss อินเวอร์เตอร์/สายไฟ 20%
+            const systemDerate = 0.80; 
 
-            // วาดแผนที่
             const colors = ['#FFD700', '#00e5ff', '#ff3d00', '#00e676', '#e040fb'];
             mapMarkers.forEach(m => map.removeLayer(m)); mapMarkers = [];
             arrays.forEach((arr, idx) => {
@@ -266,20 +260,16 @@
                 mapMarkers.push(L.marker([lat, lng], {icon: icon}).addTo(map));
             });
 
-            // คำนวณไฟฟ้า
             let totalMaxKw = 0; let totalLiveKw = 0; let totalDailyKwh = 0;
             let breakdownHtml = "";
 
             arrays.forEach((arr, idx) => {
                 let maxKw = (arr.count * arr.watt) / 1000;
                 totalMaxKw += maxKw;
-
-                // ไฟฟ้าตอนนี้ (ได้รับผลจากเมฆและเวลาที่เลื่อนอยู่)
                 let liveFactor = getIncidenceFactor(sunAlt, sunAz, arr.tilt, arr.heading);
                 let liveKw = maxKw * liveFactor * systemDerate * weatherFactor;
                 totalLiveKw += liveKw;
 
-                // พยากรณ์ทั้งวัน (สมมติว่าเมฆเท่านี้ทั้งวัน)
                 let dailyKwh = 0;
                 for(let m = 0; m < 24 * 60; m += 15) {
                     let t = new Date(targetDate); t.setHours(0, m, 0, 0);
@@ -292,40 +282,34 @@
                     }
                 }
                 totalDailyKwh += dailyKwh;
-                breakdownHtml += `ชุดที่ ${idx+1}: ผลิตได้ ${liveKw.toFixed(2)} kW | `;
+                breakdownHtml += `<strong>[ชุดที่ ${idx+1}]</strong> ตอนนี้: <span style="color:#d97706;">${liveKw.toFixed(2)} kW</span> | ทั้งวัน: ${dailyKwh.toFixed(1)} หน่วย<br>`;
             });
 
-            // อัปเดต UI 
             document.getElementById('txtMaxKw').innerText = `${totalMaxKw.toFixed(2)} kW`;
             document.getElementById('txtLiveKw').innerText = `${totalLiveKw.toFixed(2)} kW`;
             document.getElementById('txtDailyKwh').innerText = `${totalDailyKwh.toFixed(1)} หน่วย`;
-            document.getElementById('arrayBreakdown').innerText = breakdownHtml;
+            document.getElementById('arrayBreakdown').innerHTML = breakdownHtml;
 
-            // วาดโดม
             drawSkyDome(sunAz, sunAlt, colors);
         }
 
-        // --- 6. วาดโดมท้องฟ้า ---
         function drawSkyDome(sunAz, sunAlt, colors) {
             const canvas = document.getElementById('sunCanvas');
             const ctx = canvas.getContext('2d');
             const cx = canvas.width/2; const cy = canvas.height/2; const maxR = Math.min(cx, cy) - 30;
             ctx.clearRect(0,0, canvas.width, canvas.height);
 
-            // Grid
             ctx.lineWidth = 1;
             for(let alt = 0; alt <= 90; alt += 30) {
                 ctx.beginPath(); ctx.arc(cx, cy, maxR * (1 - alt/90), 0, 2 * Math.PI); ctx.strokeStyle = alt===0?'#333':'#ddd'; ctx.stroke();
             }
             ctx.beginPath(); ctx.moveTo(cx, cy-maxR); ctx.lineTo(cx, cy+maxR); ctx.moveTo(cx-maxR, cy); ctx.lineTo(cx+maxR, cy); ctx.strokeStyle='#eee'; ctx.stroke();
 
-            // ทิศ
             ctx.fillStyle = '#666'; ctx.font = 'bold 14px Arial'; ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
             [{t:'N', a:0}, {t:'E', a:90}, {t:'S', a:180}, {t:'W', a:270}].forEach(l => {
                 let rad = (l.a - 90) * Math.PI/180; ctx.fillText(l.t, cx+(maxR+15)*Math.cos(rad), cy+(maxR+15)*Math.sin(rad));
             });
 
-            // เส้นทางดวงอาทิตย์
             ctx.beginPath(); ctx.strokeStyle = 'rgba(255, 165, 0, 0.4)'; ctx.lineWidth = 4; let pathStarted = false;
             for(let m = 0; m < 24*60; m += 15) {
                 let t = new Date(targetDate); t.setHours(0, m, 0, 0);
@@ -337,7 +321,6 @@
             }
             ctx.stroke();
 
-            // พระอาทิตย์ (ขยับตามแถบเวลา)
             if (sunAlt > 0) {
                 let r = maxR * (1 - sunAlt/90); let rad = (sunAz - 90) * Math.PI/180;
                 let x = cx + r*Math.cos(rad); let y = cy + r*Math.sin(rad);
@@ -345,7 +328,6 @@
                 ctx.beginPath(); ctx.arc(x, y, 6, 0, 2*Math.PI); ctx.fillStyle = '#ff9900'; ctx.fill();
             }
 
-            // แผงศรสี
             arrays.forEach((arr, idx) => {
                 ctx.save(); ctx.translate(cx, cy); ctx.rotate(arr.heading * Math.PI/180);
                 ctx.beginPath(); ctx.moveTo(0,-40); ctx.lineTo(15,-15); ctx.lineTo(5,-15); ctx.lineTo(5,0); ctx.lineTo(-5,0); ctx.lineTo(-5,-15); ctx.lineTo(-15,-15); ctx.closePath();
@@ -358,7 +340,6 @@
 
         renderArrayList();
         updateSimulation();
-        // ให้อัปเดตอัตโนมัติเฉพาะตอนที่เลือก "เวลาจริง" เท่านั้น
         setInterval(() => { if(isLiveTime) updateSimulation(); }, 60000); 
 
     </script>
