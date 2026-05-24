@@ -3,125 +3,93 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>ระบบวางแผนโซล่าเซลล์ & พยากรณ์ไฟ</title>
+    <title>ระบบประเมินโซล่าเซลล์ (รองรับหลายทิศทาง)</title>
     
     <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
     
     <style>
         body {
             font-family: 'Sarabun', 'Segoe UI', Tahoma, sans-serif;
-            background-color: #f4f7f6;
-            color: #333;
-            margin: 0;
-            padding: 20px;
-            display: flex;
-            flex-direction: column;
-            align-items: center;
+            background-color: #f0f2f5; color: #333; margin: 0; padding: 20px;
+            display: flex; flex-direction: column; align-items: center;
         }
         .container {
-            display: flex;
-            flex-wrap: wrap;
-            gap: 20px;
-            max-width: 1100px;
-            width: 100%;
-            background: white;
-            padding: 20px;
-            border-radius: 12px;
-            box-shadow: 0 4px 15px rgba(0,0,0,0.1);
+            display: flex; flex-wrap: wrap; gap: 20px; max-width: 1200px; width: 100%;
+            background: transparent;
         }
-        .panel { flex: 1; min-width: 350px; }
-        #map { height: 350px; border-radius: 8px; border: 2px solid #2c3e50; margin-bottom: 15px; }
+        .panel { flex: 1; min-width: 380px; background: white; padding: 20px; border-radius: 12px; box-shadow: 0 4px 15px rgba(0,0,0,0.05); }
+        
+        #map { height: 300px; border-radius: 8px; border: 2px solid #2c3e50; margin-bottom: 15px; }
         canvas {
-            background: #fff; border-radius: 50%;
-            box-shadow: inset 0 0 10px rgba(0,0,0,0.1);
+            background: #fff; border-radius: 50%; box-shadow: inset 0 0 10px rgba(0,0,0,0.1);
             border: 1px solid #ddd; display: block; margin: 0 auto;
         }
         
-        .card {
-            background: #f8f9fa; border: 1px solid #e9ecef;
-            padding: 15px; border-radius: 8px; margin-bottom: 15px;
+        /* สไตล์สำหรับรายการแผงโซล่าเซลล์ */
+        .array-card {
+            background: #f8f9fa; border: 1px solid #dee2e6; border-left: 5px solid #0066cc;
+            padding: 15px; border-radius: 8px; margin-bottom: 15px; position: relative;
         }
-        .card-title { margin-top: 0; margin-bottom: 10px; color: #0056b3; font-size: 1.1em; border-bottom: 2px solid #e9ecef; padding-bottom: 5px;}
+        .array-card h3 { margin: 0 0 10px 0; font-size: 1.1em; color: #0066cc; display: flex; justify-content: space-between;}
+        .delete-btn { background: #dc3545; color: white; border: none; border-radius: 4px; padding: 3px 8px; cursor: pointer; font-size: 0.8em; }
+        .spec-grid { display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 10px; margin-bottom: 10px; }
+        .spec-input { display: flex; flex-direction: column; font-size: 0.85em; }
+        .spec-input input { padding: 6px; border: 1px solid #ccc; border-radius: 4px; margin-top: 3px; font-family: inherit;}
         
-        .spec-grid {
-            display: grid; grid-template-columns: 1fr 1fr; gap: 10px;
+        .slider-box { background: #fff3cd; padding: 10px; border-radius: 6px; font-size: 0.9em;}
+        input[type=range] { width: 100%; margin-top: 8px; cursor: pointer; }
+
+        .add-array-btn {
+            width: 100%; background: #28a745; color: white; border: none; padding: 12px;
+            border-radius: 8px; font-size: 1em; font-weight: bold; cursor: pointer;
+            box-shadow: 0 2px 5px rgba(0,0,0,0.1); transition: 0.2s;
         }
-        .spec-input {
-            display: flex; flex-direction: column; font-size: 0.9em;
-        }
-        .spec-input input { padding: 5px; border: 1px solid #ccc; border-radius: 4px; margin-top: 3px; font-family: inherit;}
+        .add-array-btn:hover { background: #218838; }
+
+        .result-box { background: #e8f4f8; border: 1px solid #bee5eb; padding: 15px; border-radius: 8px; margin-top: 20px;}
+        .grand-total { background: #d4edda; border: 1px solid #c3e6cb; padding: 15px; border-radius: 8px; margin-top: 15px; color: #155724; }
+        .data-highlight { font-weight: bold; color: #d97706; }
         
-        .data-highlight { color: #d97706; font-weight: bold; font-size: 1.2em; }
-        .data-success { color: #28a745; font-weight: bold; font-size: 1.3em; }
-        
-        h2 { margin-top: 0; color: #2c3e50; font-size: 1.4em; }
-        input[type=range] { width: 100%; margin-top: 10px; cursor: pointer; }
+        h2 { margin-top: 0; color: #2c3e50; font-size: 1.3em; border-bottom: 2px solid #f0f2f5; padding-bottom: 10px;}
+        .controls-header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 10px; }
+        .gps-btn { background: #6c757d; color: white; border: none; padding: 6px 12px; border-radius: 5px; cursor: pointer; font-size:0.9em;}
         
         .custom-arrow-container { display: flex; justify-content: center; align-items: center; }
-        .roof-arrow { width: 50px; height: 50px; transition: transform 0.1s ease-out; filter: drop-shadow(0px 4px 4px rgba(0,0,0,0.6)); }
-
-        .controls-header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 10px; }
-        .gps-btn { background-color: #0066cc; color: white; border: none; padding: 8px 12px; border-radius: 5px; cursor: pointer; font-family: inherit; }
-        .gps-btn:hover { background-color: #0052a3; }
-        .save-status { color: #28a745; font-size: 0.9em; font-weight: bold; opacity: 0; transition: opacity 0.3s; }
+        .roof-arrow { width: 44px; height: 44px; transition: transform 0.1s ease-out; filter: drop-shadow(0px 2px 3px rgba(0,0,0,0.5)); }
+        .arrow-text { font-weight: bold; font-family: Arial; font-size: 24px; fill: #000; }
     </style>
 </head>
 <body>
 
-    <h1 style="text-align: center;">☀️ ระบบวางแผน & พยากรณ์ไฟโซล่าเซลล์</h1>
+    <h1 style="text-align: center; color: #2c3e50;">☀️ ระบบคำนวณโซล่าเซลล์ (Multi-Roof)</h1>
+    <p style="text-align: center; color: #666; max-width: 800px; margin-top:-10px;">
+        คุณสามารถเพิ่มชุดแผงได้หลายทิศทาง ระบบจะรวมยอดการผลิตไฟทั้งหมดให้โดยอัตโนมัติ
+    </p>
 
     <div class="container">
         <div class="panel">
             <div class="controls-header">
-                <h2>1. ตั้งค่าตำแหน่ง & ทิศทาง</h2>
-                <button class="gps-btn" onclick="getUserLocation()">📍 ดึง GPS</button>
+                <h2>1. ตั้งค่าตำแหน่ง & รายการชุดแผง</h2>
+                <button class="gps-btn" onclick="getUserLocation()">📍 อัปเดต GPS</button>
             </div>
             
             <div id="map"></div>
-            
-            <div class="card" style="background: #fff3cd; border-color: #ffe69c;">
-                <label for="houseHeading">
-                    <strong>หมุนลูกศรให้ชี้พุ่งออกจากแผงรับแดด:</strong> <br>
-                    <span id="headingVal" style="color:#b58900; font-weight:bold;">ทิศใต้ (180°)</span>
-                </label>
-                <input type="range" id="houseHeading" min="0" max="360" value="180" step="1">
-            </div>
 
-            <div class="card">
-                <h3 class="card-title">⚙️ สเปคแผงโซล่าเซลล์ (จากโบรชัวร์)</h3>
-                <div class="spec-grid">
-                    <div class="spec-input">
-                        <label>จำนวนแผง (แผง)</label>
-                        <input type="number" id="panelCount" value="10" min="1">
-                    </div>
-                    <div class="spec-input">
-                        <label>กำลังผลิต/แผง (วัตต์)</label>
-                        <input type="number" id="panelWatt" value="550" min="100" step="5">
-                    </div>
-                    <div class="spec-input" style="grid-column: span 2;">
-                        <label>ความเอียงหลังคา (องศา) <small><i>*ปกติหลังคาไทยเอียง 15° - 20°</i></small></label>
-                        <input type="number" id="roofTilt" value="15" min="0" max="90">
-                    </div>
+            <div id="arraysList">
                 </div>
-                <div style="text-align: right; margin-top: 10px;">
-                    <span id="saveIndicator" class="save-status">💾 บันทึกค่าอัตโนมัติแล้ว</span>
-                </div>
-            </div>
+
+            <button class="add-array-btn" onclick="addNewArray()">+ เพิ่มชุดแผงหลังคาใหม่</button>
         </div>
 
         <div class="panel">
-            <h2>2. มุมมองท้องฟ้า & การผลิตไฟฟ้า</h2>
+            <h2>2. มุมมองท้องฟ้า & สรุปการผลิตไฟ</h2>
             <canvas id="sunCanvas" width="400" height="400"></canvas>
-            <p style="text-align: center; color: #666; font-size: 0.9em; margin-top: 15px;">
-                🔺 <strong>ลูกศรสีเหลือง</strong> คือทิศที่แผงคุณหันออกไปรับแดด<br>
-                (ตรงกับลูกศรบนแผนที่)
+            <p style="text-align: center; color: #666; font-size: 0.85em; margin-top: 10px;">
+                ลูกศรที่มีตัวเลข คือทิศทางของชุดแผงที่คุณติดตั้งไว้
             </p>
 
-            <div class="card" style="background:#e8f4f8; border-color:#bee5eb; margin-top:20px;">
-                <h3 class="card-title" style="color:#0c5460;">⚡ พยากรณ์การผลิตไฟฟ้า (อิงตามทิศที่คุณหันแผง)</h3>
-                <div id="powerData" style="line-height: 1.8;">
-                    </div>
-            </div>
+            <div id="resultsContainer">
+                </div>
         </div>
     </div>
 
@@ -129,163 +97,203 @@
     <script src="https://cdnjs.cloudflare.com/ajax/libs/suncalc/1.9.0/suncalc.min.js"></script>
 
     <script>
-        // --- โหลดข้อมูลที่บันทึกไว้ ---
+        // --- 1. ข้อมูล State (ค่าตั้งต้นตามที่คุณยกตัวอย่างมาเป๊ะๆ) ---
         let lat = parseFloat(localStorage.getItem('solar_lat')) || 18.7441;
         let lng = parseFloat(localStorage.getItem('solar_lng')) || 99.1226;
-        let houseHeading = parseInt(localStorage.getItem('solar_heading')); if (isNaN(houseHeading)) houseHeading = 180;
         
-        let pCount = parseInt(localStorage.getItem('solar_pCount')) || 10;
-        let pWatt = parseInt(localStorage.getItem('solar_pWatt')) || 550;
-        let rTilt = parseInt(localStorage.getItem('solar_rTilt')) || 15;
+        let defaultArrays = [
+            { id: 1, count: 5, watt: 650, tilt: 15, heading: 180 }, // ทิศใต้
+            { id: 2, count: 10, watt: 630, tilt: 15, heading: 90 }  // ทิศตะวันออก
+        ];
 
-        // เอาค่าใส่กลับคืน Input
-        document.getElementById('houseHeading').value = houseHeading;
-        document.getElementById('panelCount').value = pCount;
-        document.getElementById('panelWatt').value = pWatt;
-        document.getElementById('roofTilt').value = rTilt;
-
+        let arrays = JSON.parse(localStorage.getItem('solar_arrays_multi')) || defaultArrays;
+        
         let currentDate = new Date();
-        const directions = ["เหนือ", "ตะวันออกเฉียงเหนือ", "ตะวันออก", "ตะวันออกเฉียงใต้", "ใต้", "ตะวันตกเฉียงใต้", "ตะวันตก", "ตะวันตกเฉียงเหนือ"];
-        
-        // --- แผนที่ Leaflet ---
+        const dirs = ["เหนือ", "ต.อ.เฉียงเหนือ", "ตะวันออก", "ต.อ.เฉียงใต้", "ใต้", "ต.ต.เฉียงใต้", "ตะวันตก", "ต.ต.เฉียงเหนือ"];
+        let mapMarkers = [];
+
+        // --- 2. แผนที่ Leaflet ---
         const map = L.map('map').setView([lat, lng], 18); 
         L.tileLayer('https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/{z}/{y}/{x}', { maxZoom: 19 }).addTo(map);
 
-        const arrowSvg = `<svg viewBox="0 0 100 100" xmlns="http://www.w3.org/2000/svg"><circle cx="50" cy="50" r="45" fill="rgba(255, 255, 255, 0.2)" stroke="#fff" stroke-width="2" stroke-dasharray="4"/><path d="M50 5 L85 85 L50 70 L15 85 Z" fill="#FFD700" stroke="#000" stroke-width="3"/><circle cx="50" cy="65" r="5" fill="#e74c3c" /></svg>`;
-        const customArrowIcon = L.divIcon({
-            html: `<div class="custom-arrow-container"><div id="map-arrow" class="roof-arrow" style="transform: rotate(${houseHeading}deg);">${arrowSvg}</div></div>`,
-            className: '', iconSize: [50, 50], iconAnchor: [25, 35] 
+        map.on('click', function(e) { 
+            lat = e.latlng.lat; lng = e.latlng.lng; 
+            saveData(); updateAll(); 
         });
-        let marker = L.marker([lat, lng], {icon: customArrowIcon}).addTo(map);
-
-        // --- ระบบ Auto Save ---
-        let saveTimeout;
-        function saveSettings() {
-            localStorage.setItem('solar_lat', lat);
-            localStorage.setItem('solar_lng', lng);
-            localStorage.setItem('solar_heading', document.getElementById('houseHeading').value);
-            localStorage.setItem('solar_pCount', document.getElementById('panelCount').value);
-            localStorage.setItem('solar_pWatt', document.getElementById('panelWatt').value);
-            localStorage.setItem('solar_rTilt', document.getElementById('roofTilt').value);
-            
-            const indicator = document.getElementById('saveIndicator');
-            indicator.style.opacity = '1';
-            clearTimeout(saveTimeout);
-            saveTimeout = setTimeout(() => { indicator.style.opacity = '0'; }, 2000);
-        }
-
-        // --- Event Listeners ---
-        map.on('click', function(e) { lat = e.latlng.lat; lng = e.latlng.lng; marker.setLatLng([lat, lng]); triggerUpdate(); });
-        document.getElementById('houseHeading').addEventListener('input', triggerUpdate);
-        document.getElementById('panelCount').addEventListener('input', triggerUpdate);
-        document.getElementById('panelWatt').addEventListener('input', triggerUpdate);
-        document.getElementById('roofTilt').addEventListener('input', triggerUpdate);
-
-        function triggerUpdate() {
-            saveSettings();
-            updateTracker();
-        }
 
         function getUserLocation() {
-            const btn = document.querySelector('.gps-btn');
-            btn.innerText = "⏳ กำลังค้นหา...";
             if (navigator.geolocation) {
                 navigator.geolocation.getCurrentPosition(
                     function(pos) {
                         lat = pos.coords.latitude; lng = pos.coords.longitude;
-                        map.setView([lat, lng], 18); marker.setLatLng([lat, lng]);
-                        triggerUpdate(); btn.innerText = "📍 ดึง GPS";
-                    },
-                    function(err) { alert("ไม่สามารถดึง GPS ได้"); btn.innerText = "📍 ดึง GPS"; },
-                    { enableHighAccuracy: true, timeout: 10000 }
+                        map.setView([lat, lng], 18); saveData(); updateAll();
+                    }
                 );
             }
         }
 
-        // --- Core Math: คำนวณมุมตกกระทบ (Incidence Angle) ---
+        // --- 3. ระบบจัดการ UI (รายการแผง) ---
+        function renderArrayList() {
+            const container = document.getElementById('arraysList');
+            container.innerHTML = '';
+
+            arrays.forEach((arr, index) => {
+                const arrayNum = index + 1;
+                let dirIndex = Math.round(arr.heading / 45) % 8;
+                let dirName = dirs[dirIndex];
+
+                const html = `
+                <div class="array-card">
+                    <h3>ชุดแผงที่ ${arrayNum} 
+                        ${arrays.length > 1 ? `<button class="delete-btn" onclick="removeArray(${arr.id})">ลบชุดนี้</button>` : ''}
+                    </h3>
+                    <div class="spec-grid">
+                        <div class="spec-input">
+                            <label>จำนวน (แผง)</label>
+                            <input type="number" data-id="${arr.id}" data-field="count" value="${arr.count}" min="1">
+                        </div>
+                        <div class="spec-input">
+                            <label>วัตต์/แผง (W)</label>
+                            <input type="number" data-id="${arr.id}" data-field="watt" value="${arr.watt}" step="5">
+                        </div>
+                        <div class="spec-input">
+                            <label>ความเอียง (°)</label>
+                            <input type="number" data-id="${arr.id}" data-field="tilt" value="${arr.tilt}" max="90">
+                        </div>
+                    </div>
+                    <div class="slider-box">
+                        <label><strong>ทิศที่แผงหันไป:</strong> <span id="lbl-heading-${arr.id}" style="color:#d97706;">ทิศ${dirName} (${arr.heading}°)</span></label>
+                        <input type="range" data-id="${arr.id}" data-field="heading" value="${arr.heading}" min="0" max="360" step="1">
+                    </div>
+                </div>`;
+                container.innerHTML += html;
+            });
+        }
+
+        function addNewArray() {
+            const newId = arrays.length > 0 ? Math.max(...arrays.map(a => a.id)) + 1 : 1;
+            arrays.push({ id: newId, count: 5, watt: 550, tilt: 15, heading: 180 });
+            saveData(); renderArrayList(); updateAll();
+        }
+
+        function removeArray(id) {
+            arrays = arrays.filter(a => a.id !== id);
+            saveData(); renderArrayList(); updateAll();
+        }
+
+        // Event Delegation สำหรับ Input ทั้งหมด (ป้องกันการเสีย Focus เวลาพิมพ์)
+        document.getElementById('arraysList').addEventListener('input', function(e) {
+            if(!e.target.dataset.id) return;
+            const id = parseInt(e.target.dataset.id);
+            const field = e.target.dataset.field;
+            const val = parseFloat(e.target.value) || 0;
+
+            const targetArray = arrays.find(a => a.id === id);
+            if(targetArray) {
+                targetArray[field] = val;
+                if(field === 'heading') {
+                    let dirIndex = Math.round(val / 45) % 8;
+                    document.getElementById(`lbl-heading-${id}`).innerText = `ทิศ${dirs[dirIndex]} (${val}°)`;
+                }
+                saveData(); updateAll();
+            }
+        });
+
+        function saveData() {
+            localStorage.setItem('solar_lat', lat);
+            localStorage.setItem('solar_lng', lng);
+            localStorage.setItem('solar_arrays_multi', JSON.stringify(arrays));
+        }
+
+        // --- 4. ฟังก์ชันคำนวณและอัปเดตผลลัพธ์ ---
         function getIncidenceFactor(sunAlt, sunAz, panelTilt, panelAz) {
-            if (sunAlt <= 0) return 0; // กลางคืน
-            
-            // แปลงองศาเป็นเรเดียน
+            if (sunAlt <= 0) return 0; 
             let aAlt = sunAlt * Math.PI / 180;
             let aAz = sunAz * Math.PI / 180;
             let pTilt = panelTilt * Math.PI / 180;
             let pAz = panelAz * Math.PI / 180;
-            
-            // สูตรฟิสิกส์: cos(theta) หามุมที่แสงตกกระทบแผง
             let cosTheta = Math.sin(aAlt)*Math.cos(pTilt) + Math.cos(aAlt)*Math.sin(pTilt)*Math.cos(aAz - pAz);
-            return Math.max(0, cosTheta); // ค่าอยู่ระหว่าง 0 (ไม่โดน) ถึง 1 (โดนตั้งฉาก 100%)
+            return Math.max(0, cosTheta); 
         }
 
-        // --- อัปเดตข้อมูลและคำนวณ ---
-        function updateTracker() {
-            currentDate = new Date(); 
-            let val = parseInt(document.getElementById('houseHeading').value);
-            houseHeading = val;
-            
-            // อัปเดตข้อความทิศ
-            let dirIndex = Math.round(val / 45) % 8;
-            document.getElementById('headingVal').innerText = `ทิศ${directions[dirIndex]} (${val}°)`;
-            if (document.getElementById('map-arrow')) document.getElementById('map-arrow').style.transform = `rotate(${val}deg)`;
+        const colors = ['#FFD700', '#00e5ff', '#ff3d00', '#00e676', '#e040fb'];
 
-            // ดึงค่าสเปคแผง
-            let count = parseInt(document.getElementById('panelCount').value) || 0;
-            let watt = parseInt(document.getElementById('panelWatt').value) || 0;
-            let tilt = parseInt(document.getElementById('roofTilt').value) || 0;
-            
-            let maxCapacityKw = (count * watt) / 1000;
-            let systemDerate = 0.80; // หักลบ Loss จากฝุ่น ความร้อน อินเวอร์เตอร์ (เหลือ 80%)
-
-            // ตำแหน่งดวงอาทิตย์ปัจจุบัน
+        function updateAll() {
+            currentDate = new Date();
             const pos = SunCalc.getPosition(currentDate, lat, lng);
-            const azimuth = (pos.azimuth * 180 / Math.PI + 180) % 360;
-            const altitude = pos.altitude * 180 / Math.PI;
+            const sunAz = (pos.azimuth * 180 / Math.PI + 180) % 360;
+            const sunAlt = pos.altitude * 180 / Math.PI;
+            const systemDerate = 0.80; // เผื่อ Loss 20%
 
-            // 1. คำนวณสถานะ "ตอนนี้ (Now)"
-            let currentFactor = getIncidenceFactor(altitude, azimuth, tilt, houseHeading);
-            let efficiencyPct = currentFactor * 100;
-            let livePowerKw = maxCapacityKw * currentFactor * systemDerate;
+            // --- อัปเดต Marker บนแผนที่ ---
+            mapMarkers.forEach(m => map.removeLayer(m));
+            mapMarkers = [];
+            arrays.forEach((arr, index) => {
+                let color = colors[index % colors.length];
+                const svg = `<svg viewBox="0 0 100 100" xmlns="http://www.w3.org/2000/svg">
+                    <path d="M50 5 L85 85 L50 70 L15 85 Z" fill="${color}" stroke="#000" stroke-width="3"/>
+                    <circle cx="50" cy="65" r="14" fill="#fff" stroke="#000" stroke-width="2"/>
+                    <text x="50" y="72" text-anchor="middle" class="arrow-text">${index+1}</text>
+                </svg>`;
+                const icon = L.divIcon({
+                    html: `<div class="custom-arrow-container"><div class="roof-arrow" style="transform: rotate(${arr.heading}deg);">${svg}</div></div>`,
+                    className: '', iconSize: [44, 44], iconAnchor: [22, 30] 
+                });
+                let m = L.marker([lat, lng], {icon: icon}).addTo(map);
+                mapMarkers.push(m);
+            });
 
-            // 2. คำนวณล่วงหน้า "ทั้งวัน (Daily)"
-            let dailyKwh = 0;
-            for(let m = 0; m < 24 * 60; m += 15) { // เช็คทุกๆ 15 นาที
-                let t = new Date(currentDate);
-                t.setHours(0, m, 0, 0);
-                let p = SunCalc.getPosition(t, lat, lng);
-                let aAlt = p.altitude * 180 / Math.PI;
-                if (aAlt > 0) {
-                    let aAz = (p.azimuth * 180 / Math.PI + 180) % 360;
-                    let factor = getIncidenceFactor(aAlt, aAz, tilt, houseHeading);
-                    let kw = maxCapacityKw * factor * systemDerate;
-                    dailyKwh += kw * (15 / 60); // แปลงกิโลวัตต์ใน 15 นาที ให้เป็น กิโลวัตต์ชั่วโมง (kWh)
+            // --- คำนวณไฟฟ้าทีละชุด ---
+            let totalMaxKw = 0;
+            let totalLiveKw = 0;
+            let totalDailyKwh = 0;
+            let resultHtml = `<div class="result-box"><h3>สรุปแยกตามชุดแผง:</h3>`;
+
+            arrays.forEach((arr, index) => {
+                let maxKw = (arr.count * arr.watt) / 1000;
+                totalMaxKw += maxKw;
+
+                let liveFactor = getIncidenceFactor(sunAlt, sunAz, arr.tilt, arr.heading);
+                let liveKw = maxKw * liveFactor * systemDerate;
+                totalLiveKw += liveKw;
+
+                let dailyKwh = 0;
+                for(let m = 0; m < 24 * 60; m += 15) {
+                    let t = new Date(currentDate); t.setHours(0, m, 0, 0);
+                    let p = SunCalc.getPosition(t, lat, lng);
+                    let aAlt = p.altitude * 180 / Math.PI;
+                    if (aAlt > 0) {
+                        let aAz = (p.azimuth * 180 / Math.PI + 180) % 360;
+                        let factor = getIncidenceFactor(aAlt, aAz, arr.tilt, arr.heading);
+                        dailyKwh += (maxKw * factor * systemDerate) * (15/60);
+                    }
                 }
-            }
+                totalDailyKwh += dailyKwh;
 
-            // แสดงผลลัพธ์
-            document.getElementById('powerData').innerHTML = `
-                กำลังผลิตติดตั้งรวม (สเปค): <strong>${maxCapacityKw.toFixed(2)} kW</strong><br>
-                <hr style="border:0; border-top:1px dashed #bee5eb; margin:8px 0;">
-                ☀️ <strong>สถานะปัจจุบัน (Real-time):</strong><br>
-                - มุมรับแสง (ประสิทธิภาพ): <span class="data-highlight">${efficiencyPct.toFixed(1)}%</span><br>
-                - พลังงานที่ผลิตได้ตอนนี้: <span class="data-highlight">${livePowerKw.toFixed(2)} kW</span><br>
-                <hr style="border:0; border-top:1px dashed #bee5eb; margin:8px 0;">
-                🔋 <strong>พยากรณ์รวมทั้งวันนี้ (ฟ้าโปร่ง):</strong><br>
-                <span class="data-success">ประมาณ ${dailyKwh.toFixed(1)} หน่วย (kWh/วัน)</span>
-                <div style="font-size:0.8em; color:#666; margin-top:5px;">
-                  *หมายเหตุ: คำนวณจากสูตรตกกระทบเรขาคณิต เผื่อสูญเสียในระบบ 20% (Loss) ค่าจริงอาจลดลงตามเมฆและฝุ่น
-                </div>
-            `;
+                resultHtml += `
+                    <div style="margin-bottom: 8px; font-size: 0.9em; border-bottom: 1px dashed #ccc; padding-bottom: 5px;">
+                        <strong>[ชุดที่ ${index+1}]</strong> ติดตั้ง ${maxKw.toFixed(2)} kW | 
+                        ตอนนีัผลิตได้: <span class="data-highlight">${liveKw.toFixed(2)} kW</span> | 
+                        คาดการณ์ทั้งวัน: <strong>${dailyKwh.toFixed(1)} หน่วย</strong>
+                    </div>
+                `;
+            });
 
-            drawSkyDome(azimuth, altitude);
+            resultHtml += `</div>
+            <div class="grand-total">
+                <h3 style="margin: 0 0 10px 0; border-bottom: 1px solid #c3e6cb; padding-bottom: 5px;">🔥 ยอดรวมทั้งบ้าน (Grand Total)</h3>
+                กำลังติดตั้งรวมทั้งหมด: <strong>${totalMaxKw.toFixed(2)} kW</strong><br>
+                กำลังผลิตไฟฟ้า ณ เวลานี้: <strong style="font-size:1.2em;">${totalLiveKw.toFixed(2)} kW</strong><br>
+                คาดการณ์ผลิตไฟรวมวันนี้: <strong style="font-size:1.4em;">${totalDailyKwh.toFixed(1)} หน่วย (kWh)</strong>
+            </div>`;
+
+            document.getElementById('resultsContainer').innerHTML = resultHtml;
+
+            // --- วาด Canvas ---
+            drawSkyDome(sunAz, sunAlt);
         }
 
-        // --- วาด Canvas ---
-        function getXY(cx, cy, r, az) {
-            let rad = (az - houseHeading - 90) * Math.PI / 180;
-            return { x: cx + r * Math.cos(rad), y: cy + r * Math.sin(rad) };
-        }
-
-        function drawSkyDome(currentAzimuth, currentAltitude) {
+        function drawSkyDome(sunAz, sunAlt) {
             const canvas = document.getElementById('sunCanvas');
             const ctx = canvas.getContext('2d');
             const cx = canvas.width / 2; const cy = canvas.height / 2;
@@ -293,68 +301,79 @@
 
             ctx.clearRect(0, 0, canvas.width, canvas.height);
 
+            // Grid
             ctx.lineWidth = 1;
             for(let alt = 0; alt <= 90; alt += 30) {
-                ctx.beginPath();
-                const r = maxR * (1 - alt/90);
-                ctx.arc(cx, cy, r, 0, 2 * Math.PI);
-                ctx.strokeStyle = alt === 0 ? '#333' : '#ddd';
-                ctx.stroke();
+                ctx.beginPath(); ctx.arc(cx, cy, maxR * (1 - alt/90), 0, 2 * Math.PI);
+                ctx.strokeStyle = alt === 0 ? '#333' : '#ddd'; ctx.stroke();
             }
+            ctx.beginPath(); ctx.moveTo(cx, cy - maxR); ctx.lineTo(cx, cy + maxR);
+            ctx.moveTo(cx - maxR, cy); ctx.lineTo(cx + maxR, cy); ctx.strokeStyle = '#eee'; ctx.stroke();
 
-            ctx.beginPath();
-            ctx.moveTo(cx, cy - maxR); ctx.lineTo(cx, cy + maxR);
-            ctx.moveTo(cx - maxR, cy); ctx.lineTo(cx + maxR, cy);
-            ctx.strokeStyle = '#eee'; ctx.stroke();
-
-            ctx.fillStyle = '#666'; ctx.font = 'bold 14px Arial';
-            ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
-            const labels = [ { text: 'N', az: 0 }, { text: 'E', az: 90 }, { text: 'S', az: 180 }, { text: 'W', az: 270 } ];
-            labels.forEach(l => {
-                let pos = getXY(cx, cy, maxR + 15, l.az);
-                ctx.fillText(l.text, pos.x, pos.y);
+            // Labels N E S W (Fixed orientation: N at top)
+            ctx.fillStyle = '#666'; ctx.font = 'bold 14px Arial'; ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
+            const lbs = [{t:'N', a:0}, {t:'E', a:90}, {t:'S', a:180}, {t:'W', a:270}];
+            lbs.forEach(l => {
+                let rad = (l.a - 90) * Math.PI / 180;
+                ctx.fillText(l.t, cx + (maxR + 15) * Math.cos(rad), cy + (maxR + 15) * Math.sin(rad));
             });
 
-            ctx.beginPath();
-            ctx.strokeStyle = 'rgba(255, 165, 0, 0.4)'; ctx.lineWidth = 4;
+            // Sun Path
+            ctx.beginPath(); ctx.strokeStyle = 'rgba(255, 165, 0, 0.4)'; ctx.lineWidth = 4;
             let pathStarted = false;
-            for(let minutes = 0; minutes < 24 * 60; minutes += 15) {
-                let testDate = new Date(currentDate); testDate.setHours(0, minutes, 0, 0);
-                let p = SunCalc.getPosition(testDate, lat, lng);
+            for(let m = 0; m < 24 * 60; m += 15) {
+                let t = new Date(currentDate); t.setHours(0, m, 0, 0);
+                let p = SunCalc.getPosition(t, lat, lng);
                 let a = p.altitude * 180 / Math.PI;
                 if(a < 0) continue; 
                 let az = (p.azimuth * 180 / Math.PI + 180);
                 let r = maxR * (1 - a/90);
-                let pos = getXY(cx, cy, r, az);
-                if(!pathStarted) { ctx.moveTo(pos.x, pos.y); pathStarted = true; } 
-                else { ctx.lineTo(pos.x, pos.y); }
+                let rad = (az - 90) * Math.PI / 180;
+                let x = cx + r * Math.cos(rad); let y = cy + r * Math.sin(rad);
+                if(!pathStarted) { ctx.moveTo(x, y); pathStarted = true; } else { ctx.lineTo(x, y); }
             }
             ctx.stroke();
 
-            if (currentAltitude > 0) {
-                let r = maxR * (1 - currentAltitude/90);
-                let pos = getXY(cx, cy, r, currentAzimuth);
-                ctx.beginPath(); ctx.arc(pos.x, pos.y, 12, 0, 2*Math.PI);
-                ctx.fillStyle = 'rgba(255, 200, 0, 0.4)'; ctx.fill();
-                ctx.beginPath(); ctx.arc(pos.x, pos.y, 6, 0, 2*Math.PI);
-                ctx.fillStyle = '#ff9900'; ctx.fill();
+            // Current Sun
+            if (sunAlt > 0) {
+                let r = maxR * (1 - sunAlt/90);
+                let rad = (sunAz - 90) * Math.PI / 180;
+                let x = cx + r * Math.cos(rad); let y = cy + r * Math.sin(rad);
+                ctx.beginPath(); ctx.arc(x, y, 12, 0, 2*Math.PI); ctx.fillStyle = 'rgba(255, 200, 0, 0.4)'; ctx.fill();
+                ctx.beginPath(); ctx.arc(x, y, 6, 0, 2*Math.PI); ctx.fillStyle = '#ff9900'; ctx.fill();
             }
 
-            // ลูกศรตรงกลาง
-            ctx.save();
-            ctx.translate(cx, cy); ctx.scale(0.3, 0.3);
-            ctx.beginPath();
-            ctx.moveTo(0, -45); ctx.lineTo(35, 35); ctx.lineTo(0, 20); ctx.lineTo(-35, 35);
-            ctx.closePath();
-            ctx.fillStyle = '#FFD700'; ctx.fill();
-            ctx.lineWidth = 6; ctx.strokeStyle = '#000'; ctx.stroke();
-            ctx.beginPath(); ctx.arc(0, 15, 8, 0, 2*Math.PI);
-            ctx.fillStyle = '#e74c3c'; ctx.fill();
-            ctx.restore();
+            // Draw Array Arrows
+            arrays.forEach((arr, index) => {
+                ctx.save();
+                ctx.translate(cx, cy);
+                ctx.rotate((arr.heading) * Math.PI / 180); // Rotate based on array heading
+                
+                let color = colors[index % colors.length];
+                
+                // Draw Arrow
+                ctx.beginPath();
+                ctx.moveTo(0, -40); ctx.lineTo(15, -15); ctx.lineTo(5, -15); 
+                ctx.lineTo(5, 0); ctx.lineTo(-5, 0); ctx.lineTo(-5, -15); ctx.lineTo(-15, -15);
+                ctx.closePath();
+                ctx.fillStyle = color; ctx.fill();
+                ctx.lineWidth = 1; ctx.strokeStyle = '#000'; ctx.stroke();
+                
+                // Draw Number circle
+                ctx.beginPath(); ctx.arc(0, 0, 8, 0, 2*Math.PI); ctx.fillStyle = '#fff'; ctx.fill(); ctx.stroke();
+                
+                // Unrotate text to keep it upright
+                ctx.rotate(-(arr.heading) * Math.PI / 180);
+                ctx.fillStyle = '#000'; ctx.font = 'bold 10px Arial'; ctx.fillText(index+1, 0, 0);
+                
+                ctx.restore();
+            });
         }
 
-        triggerUpdate(); // โหลดครั้งแรก
-        setInterval(updateTracker, 60000); 
+        // Init
+        renderArrayList();
+        updateAll();
+        setInterval(updateAll, 60000); 
 
     </script>
 </body>
