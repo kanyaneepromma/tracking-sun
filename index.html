@@ -1,16 +1,16 @@
 <!DOCTYPE html>
-<html lang="en">
+<html lang="th">
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Solar Panel Sun Tracker</title>
+    <title>ระบบติดตามดวงอาทิตย์สำหรับโซล่าเซลล์</title>
     
     <!-- Map Library CSS (Leaflet) -->
     <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
     
     <style>
         body {
-            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            font-family: 'Sarabun', 'Segoe UI', Tahoma, sans-serif;
             background-color: #f4f7f6;
             color: #333;
             margin: 0;
@@ -59,29 +59,36 @@
             color: #d97706;
         }
         h2 { margin-top: 0; color: #2c3e50; }
+        .loading-location {
+            color: #0066cc;
+            font-weight: bold;
+            margin-bottom: 10px;
+            display: none;
+        }
     </style>
 </head>
 <body>
 
-    <h1>☀️ Solar Angle Tracker</h1>
-    <p>Click anywhere on the map to set your house location. The canvas tracks the sun's path for today.</p>
+    <h1>☀️ โปรแกรมคำนวณมุมดวงอาทิตย์</h1>
+    <p>ระบบจะดึงตำแหน่งปัจจุบันของคุณอัตโนมัติ หรือคุณสามารถคลิกบนแผนที่เพื่อเปลี่ยนตำแหน่งติดตั้งแผงโซล่าเซลล์ได้</p>
+    <div id="locationStatus" class="loading-location">กำลังค้นหาตำแหน่งของคุณ...</div>
 
     <div class="container">
-        <!-- Left Panel: Map & Data -->
+        <!-- ด้านซ้าย: แผนที่และข้อมูล -->
         <div class="panel">
-            <h2>1. Select Location</h2>
+            <h2>1. ตำแหน่งติดตั้ง</h2>
             <div id="map"></div>
             <div class="data-card" id="sunData">
-                <!-- Data injected via JS -->
+                <!-- ข้อมูลจะถูกดึงมาแสดงที่นี่โดย JS -->
             </div>
         </div>
 
-        <!-- Right Panel: Canvas Visualization -->
+        <!-- ด้านขวา: โดมจำลองท้องฟ้า -->
         <div class="panel">
-            <h2>2. Sky Dome (Live Path)</h2>
+            <h2>2. โดมท้องฟ้า (เส้นทางแบบเรียลไทม์)</h2>
             <canvas id="sunCanvas" width="400" height="400"></canvas>
             <p style="text-align: center; color: #666; font-size: 0.9em;">
-                Center = Straight up (Zenith)<br>Outer edge = Horizon
+                จุดศูนย์กลาง = ตรงศีรษะ (มุมเงย 90°)<br>ขอบวงกลมนอกสุด = เส้นขอบฟ้า (มุมเงย 0°)
             </p>
         </div>
     </div>
@@ -91,12 +98,12 @@
     <script src="https://cdnjs.cloudflare.com/ajax/libs/suncalc/1.9.0/suncalc.min.js"></script>
 
     <script>
-        // 1. Initialize Default Location (San Kamphaeng, Chiang Mai)
+        // 1. ตั้งค่าตำแหน่งเริ่มต้นเป็นพิกัดสำรอง (สันกำแพง เชียงใหม่) เผื่อผู้ใช้ไม่อนุญาตให้เข้าถึง GPS
         let lat = 18.7441;
         let lng = 99.1226;
         let currentDate = new Date();
 
-        // 2. Setup Map
+        // 2. สร้างแผนที่
         const map = L.map('map').setView([lat, lng], 13);
         L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
             attribution: '© OpenStreetMap contributors'
@@ -104,7 +111,7 @@
         
         let marker = L.marker([lat, lng]).addTo(map);
 
-        // Map Click Event
+        // ฟังก์ชันเมื่อคลิกแผนที่
         map.on('click', function(e) {
             lat = e.latlng.lat;
             lng = e.latlng.lng;
@@ -112,42 +119,74 @@
             updateTracker();
         });
 
-        // 3. Main Calculation & Drawing Function
-        function updateTracker() {
-            currentDate = new Date(); // Update to current time
+        // 3. ระบบขอตำแหน่งผู้ใช้อัตโนมัติ (Geolocation API)
+        function getUserLocation() {
+            const statusEl = document.getElementById('locationStatus');
+            
+            if (navigator.geolocation) {
+                statusEl.style.display = 'block';
+                navigator.geolocation.getCurrentPosition(
+                    function(position) {
+                        // ดึงตำแหน่งสำเร็จ
+                        lat = position.coords.latitude;
+                        lng = position.coords.longitude;
+                        
+                        // เลื่อนแผนที่ไปที่ตำแหน่งใหม่และย้ายหมุด
+                        map.setView([lat, lng], 14);
+                        marker.setLatLng([lat, lng]);
+                        
+                        statusEl.style.display = 'none';
+                        updateTracker();
+                    },
+                    function(error) {
+                        // กรณีผู้ใช้กดปฏิเสธ หรือหาพิกัดไม่เจอ
+                        statusEl.style.display = 'none';
+                        console.warn("ไม่สามารถดึงตำแหน่งได้ จะใช้ตำแหน่งเริ่มต้นแทน");
+                        updateTracker();
+                    },
+                    { timeout: 10000 } // รอสูงสุด 10 วินาที
+                );
+            } else {
+                updateTracker();
+            }
+        }
 
-            // Get sun data
+        // 4. ฟังก์ชันคำนวณหลักและอัปเดตข้อมูล
+        function updateTracker() {
+            currentDate = new Date(); 
+
+            // ใช้ไลบรารี SunCalc ดึงค่าดวงอาทิตย์
             const times = SunCalc.getTimes(currentDate, lat, lng);
             const pos = SunCalc.getPosition(currentDate, lat, lng);
             
-            // SunCalc azimuth is 0 at South. Convert to standard compass (0=North, 90=East)
+            // แปลงค่าให้ตรงกับเข็มทิศมาตรฐาน (0=ทิศเหนือ, 90=ตะวันออก)
             const azimuth = (pos.azimuth * 180 / Math.PI + 180) % 360;
             const altitude = pos.altitude * 180 / Math.PI;
 
-            // Update Text Data
+            // แสดงข้อมูลเป็นภาษาไทย อ้างอิงเวลาไทย
             document.getElementById('sunData').innerHTML = `
-                <strong>Live Azimuth (Compass):</strong> ${azimuth.toFixed(1)}° <br>
-                <strong>Live Elevation (Height):</strong> ${altitude.toFixed(1)}° <br>
+                <strong>มุมทิศ (เข็มทิศ N=0°, E=90°):</strong> ${azimuth.toFixed(1)}° <br>
+                <strong>มุมเงย (ความสูงจากขอบฟ้า):</strong> ${altitude.toFixed(1)}° <br>
                 <hr style="border:0; border-top:1px solid #ccc; margin:10px 0;">
-                <strong>Sunrise:</strong> ${times.sunrise.toLocaleTimeString()} <br>
-                <strong>Sunset:</strong> ${times.sunset.toLocaleTimeString()}
+                <strong>พระอาทิตย์ขึ้น:</strong> ${times.sunrise.toLocaleTimeString('th-TH')} น.<br>
+                <strong>พระอาทิตย์ตก:</strong> ${times.sunset.toLocaleTimeString('th-TH')} น.
             `;
 
             drawSkyDome(azimuth, altitude);
         }
 
-        // 4. HTML5 Canvas Drawing Logic
+        // 5. วาดโดมจำลองท้องฟ้าบน HTML5 Canvas
         function drawSkyDome(currentAzimuth, currentAltitude) {
             const canvas = document.getElementById('sunCanvas');
             const ctx = canvas.getContext('2d');
             const cx = canvas.width / 2;
             const cy = canvas.height / 2;
-            const maxR = Math.min(cx, cy) - 25; // Outer radius (horizon)
+            const maxR = Math.min(cx, cy) - 25; 
 
-            // Clear previous frame
+            // ลบเฟรมเก่า
             ctx.clearRect(0, 0, canvas.width, canvas.height);
 
-            // Draw Elevation Grid (Circles for 0°, 30°, 60°)
+            // วาดเส้นตารางมุมเงย (0°, 30°, 60°)
             ctx.lineWidth = 1;
             for(let alt = 0; alt <= 90; alt += 30) {
                 ctx.beginPath();
@@ -163,24 +202,24 @@
                 }
             }
 
-            // Draw Compass Labels (N, E, S, W)
+            // วาดตัวอักษรทิศ
             ctx.fillStyle = '#333';
             ctx.font = 'bold 14px Arial';
             ctx.textAlign = 'center';
             ctx.textBaseline = 'middle';
-            ctx.fillText('N', cx, cy - maxR - 10);
-            ctx.fillText('S', cx, cy + maxR + 10);
-            ctx.fillText('E', cx + maxR + 10, cy);
-            ctx.fillText('W', cx - maxR - 10, cy);
+            ctx.fillText('เหนือ (N)', cx, cy - maxR - 10);
+            ctx.fillText('ใต้ (S)', cx, cy + maxR + 10);
+            ctx.fillText('ออก (E)', cx + maxR + 20, cy);
+            ctx.fillText('ตก (W)', cx - maxR - 20, cy);
 
-            // Draw Crosshairs
+            // วาดเส้นกากบาทตรงกลาง
             ctx.beginPath();
             ctx.moveTo(cx, cy - maxR); ctx.lineTo(cx, cy + maxR);
             ctx.moveTo(cx - maxR, cy); ctx.lineTo(cx + maxR, cy);
             ctx.strokeStyle = '#eee';
             ctx.stroke();
 
-            // Draw Today's Sun Path
+            // วาดเส้นทางดวงอาทิตย์ทั้งวัน
             ctx.beginPath();
             ctx.strokeStyle = 'rgba(255, 165, 0, 0.5)';
             ctx.lineWidth = 4;
@@ -192,13 +231,12 @@
                 
                 let p = SunCalc.getPosition(testDate, lat, lng);
                 let a = p.altitude * 180 / Math.PI;
-                if(a < 0) continue; // Skip if sun is below horizon
+                if(a < 0) continue; 
                 
                 let az = (p.azimuth * 180 / Math.PI + 180);
                 
-                // Convert Polar (Azimuth/Altitude) to Cartesian (X/Y)
                 let r = maxR * (1 - a/90);
-                let radCanvas = (az - 90) * Math.PI / 180; // -90 aligns 0° to top
+                let radCanvas = (az - 90) * Math.PI / 180; 
                 let x = cx + r * Math.cos(radCanvas);
                 let y = cy + r * Math.sin(radCanvas);
 
@@ -211,20 +249,20 @@
             }
             ctx.stroke();
 
-            // Draw Current Sun Position
+            // วาดตำแหน่งดวงอาทิตย์ปัจจุบัน
             if (currentAltitude > 0) {
                 let r = maxR * (1 - currentAltitude/90);
                 let radCanvas = (currentAzimuth - 90) * Math.PI / 180;
                 let x = cx + r * Math.cos(radCanvas);
                 let y = cy + r * Math.sin(radCanvas);
 
-                // Glow effect
+                // เอฟเฟกต์แสงเรืองรอง
                 ctx.beginPath();
                 ctx.arc(x, y, 12, 0, 2*Math.PI);
                 ctx.fillStyle = 'rgba(255, 200, 0, 0.4)';
                 ctx.fill();
 
-                // Solid sun
+                // ตัวดวงอาทิตย์
                 ctx.beginPath();
                 ctx.arc(x, y, 6, 0, 2*Math.PI);
                 ctx.fillStyle = '#ff9900';
@@ -232,9 +270,9 @@
             }
         }
 
-        // 5. Initial Draw & Auto-Refresh
-        updateTracker();
-        setInterval(updateTracker, 60000); // Update every minute
+        // เริ่มต้นการทำงาน: ขอตำแหน่งผู้ใช้ และตั้ง Auto-Refresh ทุก 1 นาที
+        getUserLocation();
+        setInterval(updateTracker, 60000); 
 
     </script>
 </body>
