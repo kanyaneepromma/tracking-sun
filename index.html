@@ -3,12 +3,13 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>ระบบจำลองโซล่าเซลล์อัจฉริยะ (V.5.1 Mobile Fix)</title>
+    <title>ระบบจำลองโซล่าเซลล์ (V.6 Live Weather)</title>
+    
+    <link rel="icon" href="data:image/svg+xml,<svg xmlns=%22http://www.w3.org/2000/svg%22 viewBox=%220 0 100 100%22><text y=%22.9em%22 font-size=%2290%22>☀️</text></svg>">
     
     <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
     
     <style>
-        /* กฎเหล็กของ Responsive กันกล่องล้นจอ */
         * { box-sizing: border-box; }
 
         body {
@@ -27,7 +28,6 @@
             border: 1px solid #ddd; display: block; margin: 0 auto; max-width: 100%; height: auto;
         }
         
-        /* สไตล์รายการแผง */
         .array-card {
             background: #f8f9fa; border: 1px solid #dee2e6; border-left: 5px solid #0066cc;
             padding: 15px; border-radius: 8px; margin-bottom: 15px; position: relative;
@@ -39,10 +39,9 @@
         .spec-input { display: flex; flex-direction: column; font-size: 0.85em; }
         .spec-input input { width: 100%; padding: 8px; border: 1px solid #ccc; border-radius: 4px; margin-top: 3px; font-family: inherit;}
         
-        /* ปรับ Layout ให้เข้ากับมือถือ */
         @media (max-width: 480px) {
             .spec-grid { grid-template-columns: 1fr 1fr; }
-            .spec-grid .spec-input:nth-child(3) { grid-column: span 2; } /* ให้ช่องที่ 3 ขยายเต็ม 2 คอลัมน์ */
+            .spec-grid .spec-input:nth-child(3) { grid-column: span 2; } 
         }
         
         .slider-box { background: #fff3cd; padding: 12px; border-radius: 6px; font-size: 0.9em;}
@@ -55,10 +54,18 @@
         }
         .add-array-btn:hover { background: #218838; }
 
-        /* สไตล์ส่วน Weather & Time */
         .sim-panel { background: #e8f4f8; border: 1px solid #bee5eb; }
         .live-btn { background: #17a2b8; color: white; border: none; padding: 6px 12px; border-radius: 4px; cursor: pointer; font-size: 0.85em; float: right; margin-top: -3px;}
         
+        /* สไตล์ปุ่มดึงสภาพอากาศ */
+        .weather-btn {
+            background: #6f42c1; color: white; border: none; padding: 12px; width: 100%;
+            border-radius: 8px; font-size: 1em; font-weight: bold; cursor: pointer;
+            box-shadow: 0 2px 5px rgba(0,0,0,0.1); transition: 0.2s; margin-top: 10px;
+        }
+        .weather-btn:hover { background: #5a32a3; }
+        .weather-status { text-align: center; font-size: 0.9em; margin-top: 10px; font-weight: bold;}
+
         .grand-total { background: #d4edda; border: 1px solid #c3e6cb; padding: 20px; border-radius: 8px; color: #155724; width: 100%; text-align: center;}
         
         h2 { margin-top: 0; color: #2c3e50; font-size: 1.2em; border-bottom: 2px solid #f0f2f5; padding-bottom: 10px; line-height: 1.4;}
@@ -74,7 +81,7 @@
 
     <h1 style="text-align: center; color: #2c3e50; margin-bottom: 5px; font-size: 1.5em;">☀️ ระบบจำลองโซล่าเซลล์</h1>
     <p style="text-align: center; color: #666; max-width: 800px; margin-top: 0; margin-bottom: 20px; font-size: 0.9em;">
-        ลากแถบเวลาเพื่อดูดวงอาทิตย์วิ่งผ่านบ้านคุณ พร้อมคำนวณการผลิตไฟตามสภาพอากาศ
+        ดึงข้อมูลสภาพอากาศจริงจากดาวเทียม เพื่อพยากรณ์การผลิตไฟได้แม่นยำยิ่งขึ้น!
     </p>
 
     <div class="container">
@@ -101,7 +108,7 @@
         <div class="panel sim-panel">
             <h2>3. สภาพอากาศ (Weather)</h2>
             <p style="font-size: 0.9em; margin-bottom: 5px;">ปริมาณเมฆบังแสงอาทิตย์: <strong id="cloudLabel" style="color:#0066cc;">ฟ้าโปร่ง (0%)</strong></p>
-            <input type="range" id="cloudSlider" min="0" max="100" value="0" step="10" oninput="updateSimulation()">
+            <input type="range" id="cloudSlider" min="0" max="100" value="0" step="1" oninput="updateSimulation()">
         </div>
 
         <div class="panel sim-panel">
@@ -115,7 +122,16 @@
     </div>
 
     <div class="container">
-        <div class="panel" style="padding: 0;">
+        <div class="panel" style="background: #f8f9fa; border: 1px solid #dee2e6;">
+            <h2>6. ซิงค์สภาพอากาศจริง (Live Data)</h2>
+            <p style="font-size: 0.85em; color: #666;">
+                ดึงข้อมูลปริมาณเมฆ % ปัจจุบัน ณ พิกัดที่คุณปักหมุดไว้ (ใช้ API ฟรีจาก Open-Meteo)
+            </p>
+            <button class="weather-btn" id="btnFetchWeather" onclick="fetchLiveWeather()">☁️ ดึงข้อมูลเมฆจากดาวเทียมเดี๋ยวนี้</button>
+            <div id="weatherStatus" class="weather-status" style="color: #666;">รอการซิงค์ข้อมูล...</div>
+        </div>
+
+        <div class="panel" style="padding: 0; flex: 2;">
             <div class="grand-total">
                 <h2 style="margin: 0 0 10px 0; border-bottom: 1px solid #c3e6cb; padding-bottom: 5px; color:#155724;">5. สรุปพยากรณ์ไฟฟ้า (Expected Power)</h2>
                 <div style="display: flex; flex-wrap: wrap; justify-content: space-around; margin-top: 15px; gap: 10px;">
@@ -175,14 +191,14 @@
                 let dirName = dirs[Math.round(arr.heading / 45) % 8];
                 const html = `
                 <div class="array-card">
-                    <h3>ชุดแผงที่ ${index+1} ${arrays.length > 1 ? `<button class="delete-btn" onclick="removeArray(${arr.id})">ลบชุดนี้</button>` : ''}</h3>
+                    <h3>ชุดแผงที่ ${index+1} ${arrays.length > 1 ? `<button class="delete-btn" onclick="removeArray(${arr.id})">ลบ</button>` : ''}</h3>
                     <div class="spec-grid">
                         <div class="spec-input"><label>จำนวน (แผง)</label><input type="number" data-id="${arr.id}" data-field="count" value="${arr.count}"></div>
-                        <div class="spec-input"><label>วัตต์/แผง (W)</label><input type="number" data-id="${arr.id}" data-field="watt" value="${arr.watt}"></div>
+                        <div class="spec-input"><label>วัตต์ (W)</label><input type="number" data-id="${arr.id}" data-field="watt" value="${arr.watt}"></div>
                         <div class="spec-input"><label>ความเอียง (°)</label><input type="number" data-id="${arr.id}" data-field="tilt" value="${arr.tilt}"></div>
                     </div>
                     <div class="slider-box">
-                        <label><strong>ทิศที่แผงหันไป:</strong> <span id="lbl-heading-${arr.id}" style="color:#d97706;">ทิศ${dirName} (${arr.heading}°)</span></label>
+                        <label><strong>ทิศ:</strong> <span id="lbl-heading-${arr.id}" style="color:#d97706;">ทิศ${dirName} (${arr.heading}°)</span></label>
                         <input type="range" data-id="${arr.id}" data-field="heading" value="${arr.heading}" min="0" max="360" step="1">
                     </div>
                 </div>`;
@@ -226,6 +242,40 @@
             updateSimulation();
         }
 
+        // --- ระบบ API ดึงสภาพอากาศฟรี (Open-Meteo) ---
+        async function fetchLiveWeather() {
+            const btn = document.getElementById('btnFetchWeather');
+            const statusText = document.getElementById('weatherStatus');
+            btn.innerText = "⏳ กำลังดึงข้อมูลจากดาวเทียม...";
+            statusText.style.color = "#666";
+            statusText.innerText = "กำลังเชื่อมต่อ Open-Meteo API...";
+
+            try {
+                // เรียกใช้ API ฟรี ไม่ต้องมี Key
+                const response = await fetch(`https://api.open-meteo.com/v1/forecast?latitude=${lat}&longitude=${lng}&current=cloud_cover`);
+                
+                if(!response.ok) throw new Error("Network response was not ok");
+                
+                const data = await response.json();
+                const liveCloudCover = data.current.cloud_cover; // ได้ค่าเมฆ 0-100%
+
+                // เลื่อนแถบ Slider อัตโนมัติ
+                document.getElementById('cloudSlider').value = liveCloudCover;
+                updateSimulation(); // สั่งให้คำนวณไฟใหม่
+
+                statusText.style.color = "#28a745";
+                statusText.innerHTML = `✅ ซิงค์สำเร็จ! พบเมฆปกคลุม <strong>${liveCloudCover}%</strong> ณ พิกัดของคุณ`;
+                
+            } catch (error) {
+                console.error("Weather API Error:", error);
+                statusText.style.color = "#dc3545";
+                statusText.innerHTML = `❌ ดึงข้อมูลล้มเหลว กรุณาลองใหม่อีกครั้ง`;
+            }
+
+            btn.innerText = "☁️ ดึงข้อมูลเมฆจากดาวเทียมเดี๋ยวนี้";
+        }
+
+        // --- การคำนวณไฟ ---
         function getIncidenceFactor(sunAlt, sunAz, panelTilt, panelAz) {
             if (sunAlt <= 0) return 0; 
             let aAlt = sunAlt * Math.PI / 180; let aAz = sunAz * Math.PI / 180;
@@ -245,6 +295,8 @@
             cloudCover = parseInt(document.getElementById('cloudSlider').value);
             let cloudText = cloudCover === 0 ? "ฟ้าโปร่ง" : cloudCover < 50 ? "มีเมฆบางส่วน" : cloudCover < 80 ? "เมฆมาก" : "ฝนตก/ครึ้มหนัก";
             document.getElementById('cloudLabel').innerText = `${cloudText} (${cloudCover}%)`;
+            
+            // สูตรคำนวณ Impact ของเมฆแบบง่าย: ถ้าเมฆ 100% ให้ประสิทธิภาพเหลือ 20%
             let weatherFactor = 1 - (cloudCover * 0.008); 
 
             const pos = SunCalc.getPosition(targetDate, lat, lng);
