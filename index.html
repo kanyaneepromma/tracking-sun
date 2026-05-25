@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>ระบบจำลองโซล่าเซลล์ (V.8.8 Calibration)</title>
+    <title>ระบบจำลองโซล่าเซลล์ (V.9 Auto-Hybrid)</title>
     
     <link rel="icon" href="data:image/svg+xml,<svg xmlns=%22http://www.w3.org/2000/svg%22 viewBox=%220 0 100 100%22><text y=%22.9em%22 font-size=%2290%22>☀️</text></svg>">
     <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
@@ -33,7 +33,7 @@
         
         .spec-grid { display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 10px; margin-bottom: 10px; }
         .spec-input { display: flex; flex-direction: column; font-size: 0.85em; }
-        .spec-input input { width: 100%; padding: 8px; border: 1px solid #ccc; border-radius: 4px; margin-top: 3px; font-family: inherit;}
+        .spec-input input, .spec-input select { width: 100%; padding: 8px; border: 1px solid #ccc; border-radius: 4px; margin-top: 3px; font-family: inherit;}
         @media (max-width: 480px) { .spec-grid { grid-template-columns: 1fr 1fr; } .spec-grid .spec-input:nth-child(3) { grid-column: span 2; } }
         
         .slider-box { background: #fff3cd; padding: 12px; border-radius: 6px; font-size: 0.9em;}
@@ -61,9 +61,10 @@
         .highlight-green { color: #28a745; font-weight: bold;}
         .highlight-red { color: #dc3545; font-weight: bold;}
         .highlight-orange { color: #fd7e14; font-weight: bold;}
-
-        /* สไตล์สำหรับกล่อง Calibrate */
         .calibrate-box { background: #e2e3e5; padding: 12px; border-radius: 8px; margin-bottom: 15px; border-left: 5px solid #6c757d;}
+        
+        /* สไตล์เวลาอัตโนมัติ */
+        .auto-time-box { background: #d4edda; color: #155724; border: 1px solid #c3e6cb; padding: 8px; border-radius: 4px; margin-top: 3px; font-weight: bold; text-align: center; }
     </style>
 </head>
 <body>
@@ -83,7 +84,7 @@
             <div class="calibrate-box">
                 <label><strong>⚙️ ประสิทธิภาพระบบ (System Efficiency):</strong> <span id="lblSysEff" style="color:#d97706; font-weight:bold;">85%</span></label>
                 <input type="range" id="sysEff" min="50" max="100" value="85" step="1">
-                <small style="color:#555; display:block; margin-top:5px;">*ปรับจูนให้ตรงกับ Inverter ของจริง (ถ้าแอปให้ค่าน้อยไป ให้เลื่อนเพิ่มขึ้น)</small>
+                <small style="color:#555; display:block; margin-top:5px;">*ปรับจูนให้ตรงกับ Inverter ของจริง</small>
             </div>
 
             <div id="map"></div>
@@ -165,8 +166,8 @@
 
     <div class="container">
         <div class="panel bat-panel">
-            <h2>🔋 5. ระบบจำลองแบตเตอรี่ (Full Cycle Simulator)</h2>
-            <p style="font-size: 0.9em; color: #666; margin-top: -5px;">วิเคราะห์ว่าแผงคุณพอชาร์จไหมตอนกลางวัน และแบตคุณพอใช้ไหมตอนกลางคืน</p>
+            <h2>🔋 5. ระบบจำลองแบตเตอรี่ (Auto-Hybrid Simulator)</h2>
+            <p style="font-size: 0.9em; color: #666; margin-top: -5px;">วิเคราะห์ว่าแผงพอชาร์จไหม และแบตจะรอดถึงเช้า (เวลาที่แผงเริ่มจ่ายไฟแทน) หรือไม่</p>
             
             <div style="display: flex; flex-wrap: wrap; gap: 20px;">
                 <div style="flex: 1; min-width: 250px;">
@@ -181,7 +182,7 @@
                             <input type="number" id="batRes" value="10" min="0" max="90" step="5">
                         </div>
                         <div class="spec-input" style="grid-column: span 2;">
-                            <label>Max Charge Rate (kW) <small>*ลิมิตอินเวอร์เตอร์ชาร์จเข้า</small></label>
+                            <label>Max Charge Rate (kW)</label>
                             <input type="number" id="batMaxCharge" value="4.5" min="1" step="0.5">
                         </div>
                     </div>
@@ -209,9 +210,12 @@
                             <input type="time" id="batStart" value="17:00">
                         </div>
                         <div class="spec-input">
-                            <label>เลิกดึงแบต</label>
-                            <input type="time" id="batEnd" value="07:30">
+                            <label>เลิกดึงแบต <small>*คำนวณอัตโนมัติ</small></label>
+                            <div id="batEndAuto" class="auto-time-box">--:-- น.</div>
                         </div>
+                    </div>
+                    <div style="font-size: 0.8em; color: #888; margin-top: 10px;">
+                        *ระบบจะหยุดดึงแบตอัตโนมัติ เมื่อแดดออกมากพอที่จะจ่ายไฟให้บ้านได้ทั้งหมด (ตาม Load กลางวัน)
                     </div>
                 </div>
             </div>
@@ -228,10 +232,12 @@
     <script>
         let lat = parseFloat(localStorage.getItem('solar_lat')) || 18.7441;
         let lng = parseFloat(localStorage.getItem('solar_lng')) || 99.1226;
-        let arrays = JSON.parse(localStorage.getItem('solar_arrays_multi')) || [
-            { id: 1, count: 5, watt: 650, tilt: 15, heading: 217 }, 
-            { id: 2, count: 10, watt: 630, tilt: 15, heading: 134 }  
+        let defaultArrays = [
+            { id: 1, count: 5, watt: 650, tilt: 15, heading: 217, bifacialGain: 0.05 }, 
+            { id: 2, count: 10, watt: 630, tilt: 15, heading: 134, bifacialGain: 0.05 }  
         ];
+        let arrays = JSON.parse(localStorage.getItem('solar_arrays_multi_v9')) || defaultArrays;
+        
         const dirs = ["เหนือ", "ต.อ.เฉียงเหนือ", "ตะวันออก", "ต.อ.เฉียงใต้", "ใต้", "ต.ต.เฉียงใต้", "ตะวันตก", "ต.ต.เฉียงเหนือ"];
         const colors = ['#FFD700', '#00e5ff', '#ff3d00', '#00e676', '#e040fb'];
         let mapMarkers = [];
@@ -242,7 +248,6 @@
         let is3DMode = false;
         let globalSunRiseTime = 6.0;
 
-        // ระบบ Calibrate Efficiency
         document.getElementById('sysEff').value = localStorage.getItem('solar_sysEff') || 85;
         document.getElementById('lblSysEff').innerText = document.getElementById('sysEff').value + "%";
         document.getElementById('sysEff').addEventListener('input', (e) => {
@@ -251,20 +256,20 @@
             updateSimulation();
         });
 
-        // โหลดค่าแบตเตอรี่
         document.getElementById('batCap').value = localStorage.getItem('solar_batCap') || 16;
         document.getElementById('batRes').value = localStorage.getItem('solar_batRes') || 10;
         document.getElementById('batMaxCharge').value = localStorage.getItem('solar_batMaxCharge') || 4.5;
         document.getElementById('loadDay').value = localStorage.getItem('solar_loadDay') || 1000;
         document.getElementById('loadNight').value = localStorage.getItem('solar_loadNight') || 1200;
         document.getElementById('batStart').value = localStorage.getItem('solar_batStart') || "17:00";
-        document.getElementById('batEnd').value = localStorage.getItem('solar_batEnd') || "07:30";
+        // เอา batEnd ออกจาก LocalStorage เพราะคำนวณออโต้แล้ว
 
-        const batInputs = ['batCap', 'batRes', 'batMaxCharge', 'loadDay', 'loadNight', 'batStart', 'batEnd'];
+        const batInputs = ['batCap', 'batRes', 'batMaxCharge', 'loadDay', 'loadNight', 'batStart'];
         batInputs.forEach(id => {
             document.getElementById(id).addEventListener('input', () => {
                 localStorage.setItem('solar_' + id, document.getElementById(id).value);
-                calculateBattery(); 
+                // สั่งคำนวณโดยใช้ค่าจากการเลื่อนสไลเดอร์เมฆ (isUserOverride = จริงมั้ย เช็คจากปุ่ม Live)
+                calculateBattery(!isLiveTime); 
             });
         });
 
@@ -306,8 +311,17 @@
                         <div class="spec-input"><label>แผง</label><input type="number" data-id="${arr.id}" data-field="count" value="${arr.count}"></div>
                         <div class="spec-input"><label>วัตต์</label><input type="number" data-id="${arr.id}" data-field="watt" value="${arr.watt}"></div>
                         <div class="spec-input"><label>เอียง (°)</label><input type="number" data-id="${arr.id}" data-field="tilt" value="${arr.tilt}"></div>
+                        <div class="spec-input" style="grid-column: span 3; margin-top: 5px;">
+                            <label>ชนิดแผง / การสะท้อนของพื้นใต้แผง (Bifacial Gain)</label>
+                            <select data-id="${arr.id}" data-field="bifacialGain">
+                                <option value="0" ${arr.bifacialGain === 0 ? 'selected' : ''}>ธรรมดา (หน้าเดียว) / ไม่สะท้อน (0%)</option>
+                                <option value="0.05" ${arr.bifacialGain === 0.05 ? 'selected' : ''}>แผง 2 หน้า + พื้นกระเบื้องเข้ม/ดิน (+5%)</option>
+                                <option value="0.10" ${arr.bifacialGain === 0.10 ? 'selected' : ''}>แผง 2 หน้า + พื้นปูน/คอนกรีต (+10%)</option>
+                                <option value="0.20" ${arr.bifacialGain === 0.20 ? 'selected' : ''}>แผง 2 หน้า + หลังคาสีขาว/เมทัลชีท (+20%)</option>
+                            </select>
+                        </div>
                     </div>
-                    <div class="slider-box">
+                    <div class="slider-box" style="margin-top: 10px;">
                         <label><strong>ทิศ:</strong> <span id="lbl-heading-${arr.id}" style="color:#d97706;">ทิศ${dirName} (${arr.heading}°)</span></label>
                         <input type="range" data-id="${arr.id}" data-field="heading" value="${arr.heading}" min="0" max="360" step="1">
                     </div>
@@ -316,7 +330,7 @@
             build3DPanels(); 
         }
 
-        function addNewArray() { const newId = arrays.length>0 ? Math.max(...arrays.map(a=>a.id))+1 : 1; arrays.push({id:newId, count:5, watt:550, tilt:15, heading:180}); saveData(); renderArrayList(); updateSimulation(); }
+        function addNewArray() { const newId = arrays.length>0 ? Math.max(...arrays.map(a=>a.id))+1 : 1; arrays.push({id:newId, count:5, watt:550, tilt:15, heading:180, bifacialGain: 0}); saveData(); renderArrayList(); updateSimulation(); }
         function removeArray(id) { arrays = arrays.filter(a => a.id !== id); saveData(); renderArrayList(); updateSimulation(); }
         
         document.getElementById('arraysList').addEventListener('input', function(e) {
@@ -330,11 +344,16 @@
             }
         });
 
-        function saveData() { localStorage.setItem('solar_lat', lat); localStorage.setItem('solar_lng', lng); localStorage.setItem('solar_arrays_multi', JSON.stringify(arrays)); }
+        function saveData() { localStorage.setItem('solar_lat', lat); localStorage.setItem('solar_lng', lng); localStorage.setItem('solar_arrays_multi_v9', JSON.stringify(arrays)); }
 
         function handleTimeSlider() { isLiveTime = false; let mins = parseInt(document.getElementById('timeSlider').value); targetDate = new Date(); targetDate.setHours(Math.floor(mins/60), mins%60, 0, 0); document.getElementById('btnLive').style.background = '#dc3545'; updateSimulation(); }
         function setLiveTime() { isLiveTime = true; document.getElementById('btnLive').style.background = '#17a2b8'; updateSimulation(); }
-        function userOverrideCloud() { updateSimulation(true); }
+        
+        // ฟังก์ชันรับการเลื่อนเมฆแบบแมนนวล ส่ง flag ไปบอกว่า "อย่าใช้ดาวเทียมนะ ฉันจะตั้งเอง"
+        function userOverrideCloud() { 
+            isLiveTime = false; document.getElementById('btnLive').style.background = '#dc3545';
+            updateSimulation(true); 
+        }
 
         function decodeWeatherCode(code) {
             if(code <= 3) return { text: "🌤️ แจ่มใส/มีเมฆ", warn: false };
@@ -347,14 +366,11 @@
             return { text: "☁️ มีเมฆ", warn: false };
         }
 
-        // --- อัปเกรดสูตรคำนวณแสงตกกระทบ (เพิ่ม Diffuse Light) ---
         function getIncidenceFactor(sunAlt, sunAz, panelTilt, panelAz) {
             if (sunAlt <= 0) return 0; 
             let aAlt = sunAlt * Math.PI/180; let aAz = sunAz * Math.PI/180;
             let pTilt = panelTilt * Math.PI/180; let pAz = panelAz * Math.PI/180;
             let cosTheta = Math.sin(aAlt)*Math.cos(pTilt) + Math.cos(aAlt)*Math.sin(pTilt)*Math.cos(aAz - pAz);
-            
-            // เพิ่มแสงสะท้อนจากท้องฟ้า (Diffuse Light) ให้สมจริงขึ้น
             let factor = Math.max(0, cosTheta);
             return factor * 0.85 + 0.15; 
         }
@@ -434,6 +450,9 @@
                 const banner = document.getElementById('warningBanner');
                 if(wData.warn) { document.getElementById('warningText').innerText = wData.wText; banner.style.display = "block"; } 
                 else { banner.style.display = "none"; }
+            } else if (isUserOverrideCloud) {
+                currentConditionText = "🛠️ ปรับตั้งค่าเอง (Manual)";
+                document.getElementById('warningBanner').style.display = "none";
             }
 
             cloudCover = parseInt(document.getElementById('cloudSlider').value);
@@ -441,7 +460,6 @@
             document.getElementById('lblCondition').innerText = currentConditionText;
             
             let currentWeatherFactor = 1 - (cloudCover * 0.008); 
-            // ดึงค่า System Efficiency จาก UI
             let systemDerate = parseFloat(document.getElementById('sysEff').value) / 100;
 
             const pos = SunCalc.getPosition(targetDate, lat, lng);
@@ -453,18 +471,22 @@
 
             arrays.forEach((arr, idx) => {
                 let maxKw = (arr.count * arr.watt) / 1000; totalMaxKw += maxKw;
-                let liveKw = maxKw * getIncidenceFactor(sunAlt, sunAz, arr.tilt, arr.heading) * systemDerate * currentWeatherFactor;
+                let bifacialMultiplier = 1 + (arr.bifacialGain || 0);
+
+                let liveKw = maxKw * getIncidenceFactor(sunAlt, sunAz, arr.tilt, arr.heading) * systemDerate * currentWeatherFactor * bifacialMultiplier;
                 totalLiveKw += liveKw;
 
                 let dailyKwh = 0;
                 for(let m = 0; m < 24 * 60; m += 15) {
                     let simHour = Math.floor(m / 60);
-                    let simWeatherFactor = hourlyWeatherData ? 1 - (hourlyWeatherData.cloud_cover[simHour] * 0.008) : currentWeatherFactor;
+                    // ถ้าตั้งค่าแมนนวล ให้ยึดค่าสไลเดอร์เมฆตลอดทั้งวัน
+                    let simWeatherFactor = (hourlyWeatherData && !isUserOverrideCloud) ? 1 - (hourlyWeatherData.cloud_cover[simHour] * 0.008) : currentWeatherFactor;
+                    
                     let t = new Date(); t.setHours(simHour, m % 60, 0, 0);
                     let aAlt = SunCalc.getPosition(t, lat, lng).altitude * 180 / Math.PI;
                     if (aAlt > 0) {
                         let aAz = (SunCalc.getPosition(t, lat, lng).azimuth * 180 / Math.PI + 180) % 360;
-                        dailyKwh += (maxKw * getIncidenceFactor(aAlt, aAz, arr.tilt, arr.heading) * systemDerate * simWeatherFactor) * (15/60);
+                        dailyKwh += (maxKw * getIncidenceFactor(aAlt, aAz, arr.tilt, arr.heading) * systemDerate * simWeatherFactor * bifacialMultiplier) * (15/60);
                     }
                 }
                 totalDailyKwh += dailyKwh;
@@ -481,7 +503,9 @@
             document.getElementById('arrayBreakdown').innerHTML = breakdownHtml;
 
             if(is3DMode) { update3DSun(sunAz, sunAlt); } else { drawSkyDome2D(sunAz, sunAlt); }
-            calculateBattery();
+            
+            // ส่งค่าลงไปให้แบตเตอรี่รู้ด้วยว่า แมนนวลเมฆอยู่หรือเปล่า
+            calculateBattery(isUserOverrideCloud);
         }
 
         function drawSkyDome2D(sunAz, sunAlt) {
@@ -510,24 +534,59 @@
             });
         }
 
-        function calculateBattery() {
+        // รับค่า Parameter แมนนวลเข้ามา
+        function calculateBattery(isUserOverrideCloud = false) {
             let cap = parseFloat(document.getElementById('batCap').value) || 0;
             let res = parseFloat(document.getElementById('batRes').value) || 0;
             let maxChargeRate = parseFloat(document.getElementById('batMaxCharge').value) || 0;
             let loadDayKw = (parseFloat(document.getElementById('loadDay').value) || 0) / 1000;
             let loadNightKw = (parseFloat(document.getElementById('loadNight').value) || 0) / 1000;
             let tStart = document.getElementById('batStart').value;
-            let tEnd = document.getElementById('batEnd').value;
 
             let usableCap = cap * (1 - res / 100);
             let startChargeTime = globalSunRiseTime; 
             let currentBatteryLevel = 0; 
             let fullChargeTime = null;
             let systemDerate = parseFloat(document.getElementById('sysEff').value) / 100;
+            
+            // --- ระบบ Auto เลิกดึงแบตตอนเช้า ---
+            let autoEndTime = 8.0; // เผื่อเหนียวไว้ที่ 08:00
+            let autoEndStr = "08:00"; 
+            
+            // หาจุดที่แดดแรงพอจะรันโหลดทั้งบ้านโดยไม่พึ่งแบต
+            for(let m = Math.floor(globalSunRiseTime * 60); m < 12 * 60; m += 15) {
+                let simHour = Math.floor(m / 60);
+                let simWeatherFactor = (hourlyWeatherData && !isUserOverrideCloud) ? 1 - (hourlyWeatherData.cloud_cover[simHour] * 0.008) : (1 - cloudCover * 0.008);
+                
+                let t = new Date(); t.setHours(simHour, m % 60, 0, 0);
+                let sunData = SunCalc.getPosition(t, lat, lng);
+                let aAlt = sunData.altitude * 180 / Math.PI;
+                if (aAlt > 0) {
+                    let aAz = (sunData.azimuth * 180 / Math.PI + 180) % 360;
+                    let stepTotalKw = 0;
+                    arrays.forEach(arr => {
+                        let maxKw = (arr.count * arr.watt) / 1000;
+                        let bifacialMultiplier = 1 + (parseFloat(arr.bifacialGain) || 0);
+                        let factor = getIncidenceFactor(aAlt, aAz, arr.tilt, arr.heading);
+                        stepTotalKw += maxKw * factor * systemDerate * simWeatherFactor * bifacialMultiplier;
+                    });
+                    
+                    // ถ้าแผงผลิตไฟได้มากกว่าโหลดกลางวัน แสดงว่าโซล่าเซลล์เทคโอเวอร์ 100% แล้ว!
+                    if (stepTotalKw >= loadDayKw) {
+                        autoEndTime = simHour + (m % 60) / 60;
+                        autoEndStr = `${simHour.toString().padStart(2,'0')}:${(m%60).toString().padStart(2,'0')}`;
+                        break; 
+                    }
+                }
+            }
+            
+            // โชว์เวลา Auto บนหน้าเว็บ
+            document.getElementById('batEndAuto').innerText = autoEndStr + " น.";
 
+            // วนลูปชาร์จกลางวัน (เหมือนเดิม)
             for(let m = Math.floor(startChargeTime * 60); m < 24 * 60; m += 15) {
                 let simHour = Math.floor(m / 60);
-                let simWeatherFactor = hourlyWeatherData ? 1 - (hourlyWeatherData.cloud_cover[simHour] * 0.008) : (1 - cloudCover * 0.008);
+                let simWeatherFactor = (hourlyWeatherData && !isUserOverrideCloud) ? 1 - (hourlyWeatherData.cloud_cover[simHour] * 0.008) : (1 - cloudCover * 0.008);
                 
                 let t = new Date(); t.setHours(simHour, m % 60, 0, 0);
                 let sunData = SunCalc.getPosition(t, lat, lng);
@@ -538,8 +597,9 @@
                     let stepTotalKw = 0;
                     arrays.forEach(arr => {
                         let maxKw = (arr.count * arr.watt) / 1000;
+                        let bifacialMultiplier = 1 + (parseFloat(arr.bifacialGain) || 0);
                         let factor = getIncidenceFactor(aAlt, aAz, arr.tilt, arr.heading);
-                        stepTotalKw += maxKw * factor * systemDerate * simWeatherFactor;
+                        stepTotalKw += maxKw * factor * systemDerate * simWeatherFactor * bifacialMultiplier;
                     });
 
                     let availableForCharge = stepTotalKw - loadDayKw;
@@ -568,10 +628,10 @@
             }
             chargeHtml += `</div>`;
 
+            // คำนวณช่วงเวลาดึงแบต (ใช้ AutoEndTime แทน)
             let [sH, sM] = tStart.split(':').map(Number);
-            let [eH, eM] = tEnd.split(':').map(Number);
             let sTime = sH + sM/60;
-            let eTime = eH + eM/60;
+            let eTime = autoEndTime; // ออโต้เลยจ้า
 
             if (eTime <= sTime) eTime += 24; 
             let durationHours = eTime - sTime;
