@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>ระบบจำลองโซล่าเซลล์ (V.8.2 Unified UI)</title>
+    <title>ระบบจำลองโซล่าเซลล์ (V.8.3 3D Fixed)</title>
     
     <link rel="icon" href="data:image/svg+xml,<svg xmlns=%22http://www.w3.org/2000/svg%22 viewBox=%220 0 100 100%22><text y=%22.9em%22 font-size=%2290%22>☀️</text></svg>">
     <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
@@ -278,7 +278,7 @@
             scene.background = new THREE.Color(0x87CEEB); 
 
             camera = new THREE.PerspectiveCamera(45, container.clientWidth / container.clientHeight, 1, 1000);
-            camera.position.set(0, 40, 60);
+            camera.position.set(0, 45, 65); // ถอยกล้องออกมานิดนึง
 
             renderer = new THREE.WebGLRenderer({ antialias: true });
             renderer.setSize(container.clientWidth, container.clientHeight);
@@ -317,16 +317,17 @@
             plane.receiveShadow = true;
             scene.add(plane);
 
-            const houseGeo = new THREE.BoxGeometry(20, 10, 20);
+            // ขยายฐานบ้านให้กว้างขึ้น
+            const houseGeo = new THREE.BoxGeometry(30, 8, 30);
             const houseMat = new THREE.MeshStandardMaterial({ color: 0xeeeeee });
             const house = new THREE.Mesh(houseGeo, houseMat);
-            house.position.y = 5;
+            house.position.y = 4; // ให้ฐานวางติดพื้นพอดี
             house.castShadow = true;
             house.receiveShadow = true;
             scene.add(house);
 
             panelsGroup = new THREE.Group();
-            panelsGroup.position.y = 10.1; 
+            panelsGroup.position.y = 8; // วางกรุ๊ปแผงไว้บนดาดฟ้าบ้าน
             scene.add(panelsGroup);
 
             function animate() {
@@ -345,22 +346,47 @@
             });
         }
 
+        // การสร้างแผง 3D แบบมีขาตั้งและจัดเรียงอัตโนมัติ
         function build3DPanels() {
             if(!panelsGroup) return;
             panelsGroup.clear();
 
+            const spacing = 10; // ระยะห่างระหว่างแต่ละชุดแผง
+            const cols = Math.ceil(Math.sqrt(arrays.length));
+
             arrays.forEach((arr, idx) => {
                 const pivot = new THREE.Group();
-                const panelGeo = new THREE.BoxGeometry(8, 0.5, 12);
+                
+                // จัดเรียงตำแหน่งบน Grid
+                const col = idx % cols;
+                const row = Math.floor(idx / cols);
+                const offsetX = (col - (cols - 1) / 2) * spacing;
+                const offsetZ = (row - (Math.ceil(arrays.length / cols) - 1) / 2) * spacing;
+                pivot.position.set(offsetX, 0, offsetZ);
+
+                // สร้างเสาตั้งแผง (Mount Pole)
+                const poleGeo = new THREE.CylinderGeometry(0.4, 0.4, 2);
+                const poleMat = new THREE.MeshStandardMaterial({ color: 0x666666 });
+                const pole = new THREE.Mesh(poleGeo, poleMat);
+                pole.position.y = 1; // ยกเสาขึ้นมาจากพื้นดาดฟ้า
+                pole.castShadow = true;
+                pivot.add(pole);
+
+                // สร้างแผ่นแผงโซล่าเซลล์
+                const panelGeo = new THREE.BoxGeometry(7, 0.2, 9);
                 const panelMat = new THREE.MeshStandardMaterial({ color: colors[idx % colors.length] });
                 const panel = new THREE.Mesh(panelGeo, panelMat);
                 panel.castShadow = true;
                 panel.receiveShadow = true;
 
-                panel.rotation.x = -arr.tilt * (Math.PI / 180);
-                pivot.rotation.y = -arr.heading * (Math.PI / 180);
+                // ยกแผงขึ้นไปไว้บนเสา
+                panel.position.y = 2; 
 
-                if(arrays.length > 1) { pivot.position.x = (idx === 0) ? -4 : 4; }
+                // เอียงแผงตามแกน X
+                panel.rotation.x = -arr.tilt * (Math.PI / 180);
+                
+                // หันทิศทางแผงโดยหมุนตัว Pivot ทั้งหมด
+                pivot.rotation.y = -arr.heading * (Math.PI / 180);
 
                 pivot.add(panel);
                 panelsGroup.add(pivot);
