@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>ระบบจำลองโซล่าเซลล์ (V.8.5 Battery Sim)</title>
+    <title>ระบบจำลองโซล่าเซลล์ (V.8.6 Full Battery Cycle)</title>
     
     <link rel="icon" href="data:image/svg+xml,<svg xmlns=%22http://www.w3.org/2000/svg%22 viewBox=%220 0 100 100%22><text y=%22.9em%22 font-size=%2290%22>☀️</text></svg>">
     <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
@@ -59,9 +59,12 @@
         @keyframes pulse { 0% { opacity: 1; } 50% { opacity: 0.7; } 100% { opacity: 1; } }
 
         /* สไตล์กล่อง Battery */
-        .bat-panel { background: #fcf9f2; border: 1px solid #f5e4c3; }
-        .bat-result-ok { background: #d4edda; color: #155724; border: 1px solid #c3e6cb; padding: 15px; border-radius: 8px; font-weight: bold; text-align: center; margin-top: 15px;}
-        .bat-result-fail { background: #f8d7da; color: #721c24; border: 1px solid #f5c6cb; padding: 15px; border-radius: 8px; font-weight: bold; text-align: center; margin-top: 15px;}
+        .bat-panel { background: #f8f9fa; border: 1px solid #dee2e6; }
+        .bat-section-title { font-weight: bold; color: #0056b3; margin-top: 15px; margin-bottom: 5px; border-bottom: 1px solid #ccc; padding-bottom: 5px;}
+        .bat-result-box { background: white; border: 1px solid #ddd; padding: 15px; border-radius: 8px; margin-top: 15px;}
+        .highlight-green { color: #28a745; font-weight: bold;}
+        .highlight-red { color: #dc3545; font-weight: bold;}
+        .highlight-orange { color: #fd7e14; font-weight: bold;}
     </style>
 </head>
 <body>
@@ -96,10 +99,7 @@
                 <div class="compass-label-3d label-e">ต.อ. (E)</div>
                 <div class="compass-label-3d label-w">ต.ต. (W)</div>
             </div>
-
-            <p id="viewDesc" style="text-align: center; color: #666; font-size: 0.85em; margin-top: 10px;">
-                ลูกศรตัวเลข คือทิศของแผงที่คุณติดตั้งไว้ (มองจากมุมสูง)
-            </p>
+            <p id="viewDesc" style="text-align: center; color: #666; font-size: 0.85em; margin-top: 10px;">ลูกศรตัวเลข คือทิศของแผงที่คุณติดตั้งไว้ (มองจากมุมสูง)</p>
         </div>
     </div>
 
@@ -129,13 +129,10 @@
                         <span>สภาพอากาศ (<span id="lblWeatherTime">--:--</span>):</span>
                         <strong id="lblCondition" style="color:#0066cc;">กำลังโหลด...</strong>
                     </div>
-                    
                     <div style="display: flex; justify-content: space-between; font-size: 0.9em; margin-bottom: 5px;">
-                        <span>ปริมาณเมฆปกคลุม:</span>
-                        <strong id="cloudLabel">--%</strong>
+                        <span>ปริมาณเมฆปกคลุม:</span><strong id="cloudLabel">--%</strong>
                     </div>
                     <input type="range" id="cloudSlider" min="0" max="100" value="0" step="1" oninput="userOverrideCloud()">
-                    
                     <div id="warningBanner" class="warning-banner">⚠️ คำเตือน: <span id="warningText"></span></div>
                 </div>
             </div>
@@ -148,64 +145,87 @@
                 <h2 style="margin: 0 0 10px 0; border-bottom: 1px solid #c3e6cb; padding-bottom: 5px; color:#155724;">4. สรุปพยากรณ์ไฟฟ้า (Expected Power)</h2>
                 <div style="display: flex; flex-wrap: wrap; justify-content: space-around; margin-top: 15px; gap: 10px;">
                     <div style="flex: 1; min-width: 140px; margin: 5px;">
-                        <span style="font-size: 0.85em; color:#444;">สเปคติดตั้งรวม</span><br>
-                        <strong style="font-size: 1.3em; color:#333;" id="txtMaxKw">0.00 kW</strong>
+                        <span style="font-size: 0.85em; color:#444;">สเปคติดตั้งรวม</span><br><strong style="font-size: 1.3em; color:#333;" id="txtMaxKw">0.00 kW</strong>
                     </div>
                     <div style="flex: 1; min-width: 160px; margin: 5px; background: white; padding: 10px; border-radius: 8px; box-shadow: 0 2px 5px rgba(0,0,0,0.05);">
-                        <span style="font-size: 0.85em; color:#444;">กำลังผลิต เวลา <span id="txtSimTime">--:--</span></span><br>
-                        <strong style="font-size: 1.8em; color:#d97706;" id="txtLiveKw">0.00 kW</strong>
+                        <span style="font-size: 0.85em; color:#444;">กำลังผลิต เวลา <span id="txtSimTime">--:--</span></span><br><strong style="font-size: 1.8em; color:#d97706;" id="txtLiveKw">0.00 kW</strong>
                     </div>
                     <div style="flex: 1; min-width: 140px; margin: 5px;">
-                        <span style="font-size: 0.85em; color:#444;">คาดการณ์ทั้งวัน</span><br>
-                        <strong style="font-size: 1.3em; color:#155724;" id="txtDailyKwh">0.0 หน่วย</strong>
+                        <span style="font-size: 0.85em; color:#444;">คาดการณ์ทั้งวัน</span><br><strong style="font-size: 1.3em; color:#155724;" id="txtDailyKwh">0.0 หน่วย</strong>
                     </div>
                 </div>
-                <div id="arrayBreakdown" style="font-size: 0.85em; color:#555; margin-top: 15px; border-top: 1px dashed #c3e6cb; padding-top: 10px; line-height: 1.6;"></div>
             </div>
         </div>
     </div>
 
     <div class="container">
         <div class="panel bat-panel">
-            <h2>🔋 5. ระบบจำลองแบตเตอรี่ (Night Survival)</h2>
-            <p style="font-size: 0.9em; color: #666; margin-top: -5px;">วิเคราะห์ว่าแบตเตอรี่ที่คุณมี จะอยู่รอดจนถึงเช้าหรือไม่ (ไม่นับตอนชาร์จ)</p>
+            <h2>🔋 5. ระบบจำลองแบตเตอรี่ (Full Cycle Simulator)</h2>
+            <p style="font-size: 0.9em; color: #666; margin-top: -5px;">วิเคราะห์ว่าแผงคุณพอชาร์จไหมตอนกลางวัน และแบตคุณพอใช้ไหมตอนกลางคืน</p>
             
-            <div class="spec-grid" style="grid-template-columns: 1fr 1fr; gap: 15px; margin-top: 15px;">
-                <div class="spec-input">
-                    <label>ความจุแบตเตอรี่ (kWh)</label>
-                    <input type="number" id="batCap" value="16" min="1" step="0.5">
+            <div style="display: flex; flex-wrap: wrap; gap: 20px;">
+                <div style="flex: 1; min-width: 250px;">
+                    <div class="bat-section-title">⚙️ สเปคแบตเตอรี่</div>
+                    <div class="spec-grid" style="grid-template-columns: 1fr 1fr; gap: 10px;">
+                        <div class="spec-input">
+                            <label>ความจุแบต (kWh)</label>
+                            <input type="number" id="batCap" value="16" min="1" step="0.5">
+                        </div>
+                        <div class="spec-input">
+                            <label>สำรองไม่ใช้ (%)</label>
+                            <input type="number" id="batRes" value="10" min="0" max="90" step="5">
+                        </div>
+                        <div class="spec-input" style="grid-column: span 2;">
+                            <label>Max Charge Rate (kW) <small>*ลิมิตอินเวอร์เตอร์ชาร์จเข้าแบต</small></label>
+                            <input type="number" id="batMaxCharge" value="4.5" min="1" step="0.5">
+                        </div>
+                    </div>
                 </div>
-                <div class="spec-input">
-                    <label>สำรองฉุกเฉิน / เผื่อเสื่อม (%)</label>
-                    <input type="number" id="batRes" value="10" min="0" max="90" step="5">
+
+                <div style="flex: 1; min-width: 250px;">
+                    <div class="bat-section-title">🏠 การใช้ไฟบ้าน (Load)</div>
+                    <div class="spec-grid" style="grid-template-columns: 1fr; gap: 10px;">
+                        <div class="spec-input">
+                            <label>ใช้ไฟกลางวันเฉลี่ย (kW) <small>*ขณะมีแดด (เช่น ทำงานอยู่บ้าน = 1.5)</small></label>
+                            <input type="number" id="loadDay" value="1.0" min="0" step="0.1">
+                        </div>
+                        <div class="spec-input">
+                            <label>ใช้ไฟกลางคืนเฉลี่ย (kW) <small>*แอร์, ตู้เย็น (เช่น 1.2)</small></label>
+                            <input type="number" id="loadNight" value="1.2" min="0" step="0.1">
+                        </div>
+                    </div>
                 </div>
-                <div class="spec-input">
-                    <label>เริ่มใช้แบต (เช่น แดดหมด)</label>
-                    <input type="time" id="batStart" value="17:00">
-                </div>
-                <div class="spec-input">
-                    <label>หยุดใช้แบต (เช่น แดดมา)</label>
-                    <input type="time" id="batEnd" value="07:30">
-                </div>
-                <div class="spec-input" style="grid-column: span 2;">
-                    <label>การใช้ไฟบ้านเฉลี่ยในเวลานี้ (วัตต์/W) <small>*เช่น แอร์ 1 ตู้เย็น 1 ทีวี 1 = ~1200W</small></label>
-                    <input type="number" id="batLoad" value="1200" min="0" step="100">
+
+                <div style="flex: 1; min-width: 250px;">
+                    <div class="bat-section-title">⏱️ เวลาใช้งานแบต (กลางคืน)</div>
+                    <div class="spec-grid" style="grid-template-columns: 1fr 1fr; gap: 10px;">
+                        <div class="spec-input">
+                            <label>เริ่มดึงแบต</label>
+                            <input type="time" id="batStart" value="17:00">
+                        </div>
+                        <div class="spec-input">
+                            <label>เลิกดึงแบต</label>
+                            <input type="time" id="batEnd" value="07:30">
+                        </div>
+                    </div>
+                    <div style="font-size: 0.8em; color: #888; margin-top: 10px;">
+                        *ระบบจะเริ่มชาร์จแบตอัตโนมัติตามเวลาพระอาทิตย์ขึ้นของวันนี้
+                    </div>
                 </div>
             </div>
 
-            <div id="batResultDiv">
+            <div id="batResultDiv" class="bat-result-box">
                 </div>
         </div>
     </div>
 
     <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/suncalc/1.9.0/suncalc.min.js"></script>
-    
     <script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
     <script src="https://cdn.jsdelivr.net/npm/three@0.128.0/examples/js/controls/OrbitControls.js"></script>
 
     <script>
-        // --- State Variables ---
+        // --- 1. State Variables ---
         let lat = parseFloat(localStorage.getItem('solar_lat')) || 18.7441;
         let lng = parseFloat(localStorage.getItem('solar_lng')) || 99.1226;
         let arrays = JSON.parse(localStorage.getItem('solar_arrays_multi')) || [
@@ -220,83 +240,24 @@
         let cloudCover = 0; 
         let hourlyWeatherData = null;
         let is3DMode = false;
+        let globalSunRiseTime = 6.0; // เก็บเป็นทศนิยมสำหรับแบตเตอรี่
 
-        // --- โหลดค่าแบตเตอรี่ ---
+        // โหลดค่าแบตเตอรี่
         document.getElementById('batCap').value = localStorage.getItem('solar_batCap') || 16;
         document.getElementById('batRes').value = localStorage.getItem('solar_batRes') || 10;
+        document.getElementById('batMaxCharge').value = localStorage.getItem('solar_batMaxCharge') || 4.5;
+        document.getElementById('loadDay').value = localStorage.getItem('solar_loadDay') || 1.0;
+        document.getElementById('loadNight').value = localStorage.getItem('solar_loadNight') || 1.2;
         document.getElementById('batStart').value = localStorage.getItem('solar_batStart') || "17:00";
         document.getElementById('batEnd').value = localStorage.getItem('solar_batEnd') || "07:30";
-        document.getElementById('batLoad').value = localStorage.getItem('solar_batLoad') || 1200;
 
-        // ดัก Event การพิมพ์ของแบตเตอรี่
-        const batInputs = ['batCap', 'batRes', 'batStart', 'batEnd', 'batLoad'];
+        const batInputs = ['batCap', 'batRes', 'batMaxCharge', 'loadDay', 'loadNight', 'batStart', 'batEnd'];
         batInputs.forEach(id => {
             document.getElementById(id).addEventListener('input', () => {
                 localStorage.setItem('solar_' + id, document.getElementById(id).value);
-                calculateBattery();
+                simulateBatteryCycle();
             });
         });
-
-        // --- ฟังก์ชันคำนวณแบตเตอรี่ ---
-        function calculateBattery() {
-            let cap = parseFloat(document.getElementById('batCap').value) || 0;
-            let res = parseFloat(document.getElementById('batRes').value) || 0;
-            let loadW = parseFloat(document.getElementById('batLoad').value) || 0;
-            let tStart = document.getElementById('batStart').value;
-            let tEnd = document.getElementById('batEnd').value;
-
-            // 1. คำนวณแบตที่ใช้ได้จริง (หัก % สำรอง)
-            let usableKwh = cap * (1 - res / 100);
-
-            // 2. คำนวณระยะเวลา (ชั่วโมง)
-            let [sH, sM] = tStart.split(':').map(Number);
-            let [eH, eM] = tEnd.split(':').map(Number);
-            let sTime = sH + sM/60;
-            let eTime = eH + eM/60;
-
-            if (eTime <= sTime) eTime += 24; // ข้ามคืนไปอีกวัน
-            let durationHours = eTime - sTime;
-
-            // 3. ปริมาณไฟที่ต้องใช้ทั้งหมดในช่วงนี้
-            let neededKwh = (loadW / 1000) * durationHours;
-
-            let resultHtml = "";
-            let infoHtml = `<div style="font-size: 0.85em; color: #555; margin-bottom: 5px;">
-                แบตที่ใช้ได้จริง (หักสำรอง): <strong>${usableKwh.toFixed(1)} kWh</strong> <br>
-                ความต้องการไฟรวม ${durationHours.toFixed(1)} ชม.: <strong>${neededKwh.toFixed(1)} kWh</strong>
-            </div>`;
-
-            if (loadW === 0) {
-                resultHtml = `<div class="bat-result-ok">✅ รอดแน่นอน (ไม่ได้ใช้ไฟเลย!)</div>`;
-            } else if (usableKwh >= neededKwh) {
-                // รอด
-                let leftKwh = usableKwh - neededKwh;
-                let leftPct = (leftKwh / cap) * 100 + res; // คำนวณ % ที่เหลืออิงจากความจุเต็ม (รวมสำรอง)
-                resultHtml = `<div class="bat-result-ok">
-                    🌙 เปิดใช้ยาวๆ ไม่ต้องกลัวดับ!<br>
-                    <span style="font-size:0.9em; font-weight:normal;">แบตจะเหลือประมาณ <strong>${leftPct.toFixed(1)}%</strong> ในตอนเช้า</span>
-                </div>`;
-            } else {
-                // ไม่รอด คำนวณเวลาตาย
-                let surviveHours = usableKwh / (loadW / 1000);
-                let dieTime = sTime + surviveHours;
-                if (dieTime >= 24) dieTime -= 24;
-                
-                let dH = Math.floor(dieTime);
-                let dM = Math.round((dieTime - dH) * 60);
-                if (dM === 60) { dH += 1; dM = 0; }
-                if (dH === 24) dH = 0;
-
-                let timeStr = `${dH.toString().padStart(2, '0')}:${dM.toString().padStart(2, '0')} น.`;
-                
-                resultHtml = `<div class="bat-result-fail">
-                    ⚠️ แบตเตอรี่ไม่พอใช้ทั้งคืน!<br>
-                    <span style="font-size:0.9em; font-weight:normal;">แบตจะหมดลงที่เวลาประมาณ <strong>${timeStr}</strong></span>
-                </div>`;
-            }
-
-            document.getElementById('batResultDiv').innerHTML = infoHtml + resultHtml;
-        }
 
         const map = L.map('map').setView([lat, lng], 18); 
         L.tileLayer('https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/{z}/{y}/{x}', { maxZoom: 19 }).addTo(map);
@@ -386,192 +347,54 @@
             return Math.max(0, cosTheta); 
         }
 
+        // --- 3D Code ---
         let scene, camera, renderer, dirLight, sunMesh, panelsGroup;
-
         function init3D() {
             const container = document.getElementById('threeContainer');
-            scene = new THREE.Scene();
-            scene.background = new THREE.Color(0x87CEEB); 
-
-            camera = new THREE.PerspectiveCamera(45, container.clientWidth / container.clientHeight, 1, 1000);
-            camera.position.set(0, 45, 65); 
-
-            renderer = new THREE.WebGLRenderer({ antialias: true });
-            renderer.setSize(container.clientWidth, container.clientHeight);
-            renderer.shadowMap.enabled = true; 
-            renderer.shadowMap.type = THREE.PCFSoftShadowMap;
-            container.appendChild(renderer.domElement);
-
-            const controls = new THREE.OrbitControls(camera, renderer.domElement);
-            controls.enableDamping = true;
-            controls.maxPolarAngle = Math.PI / 2 - 0.05; 
-
-            const ambientLight = new THREE.AmbientLight(0xffffff, 0.5);
-            scene.add(ambientLight);
-
-            dirLight = new THREE.DirectionalLight(0xffffee, 1.2);
-            dirLight.castShadow = true;
-            dirLight.shadow.mapSize.width = 1024;
-            dirLight.shadow.mapSize.height = 1024;
-            dirLight.shadow.camera.near = 0.5;
-            dirLight.shadow.camera.far = 200;
-            dirLight.shadow.camera.left = -40;
-            dirLight.shadow.camera.right = 40;
-            dirLight.shadow.camera.top = 40;
-            dirLight.shadow.camera.bottom = -40;
-            scene.add(dirLight);
-
-            const sunGeo = new THREE.SphereGeometry(3, 16, 16);
-            const sunMat = new THREE.MeshBasicMaterial({ color: 0xffff00 });
-            sunMesh = new THREE.Mesh(sunGeo, sunMat);
-            scene.add(sunMesh);
-
-            const planeGeo = new THREE.PlaneGeometry(150, 150);
-            const planeMat = new THREE.MeshStandardMaterial({ color: 0x4a7c59, roughness: 1 });
-            const plane = new THREE.Mesh(planeGeo, planeMat);
-            plane.rotation.x = -Math.PI / 2;
-            plane.receiveShadow = true;
-            scene.add(plane);
-
-            const houseGroup = new THREE.Group();
-
-            const wallsGeo = new THREE.BoxGeometry(30, 10, 30);
-            const wallsMat = new THREE.MeshStandardMaterial({ color: 0xfdfdfd }); 
-            const walls = new THREE.Mesh(wallsGeo, wallsMat);
-            walls.position.y = 5; 
-            walls.castShadow = true;
-            walls.receiveShadow = true;
-            houseGroup.add(walls);
-
-            const roofGeo = new THREE.ConeGeometry(23, 8, 4); 
-            const roofMat = new THREE.MeshStandardMaterial({ color: 0x8b4513 }); 
-            const roof = new THREE.Mesh(roofGeo, roofMat);
-            roof.position.y = 14; 
-            roof.rotation.y = Math.PI / 4; 
-            roof.castShadow = true;
-            roof.receiveShadow = true;
-            houseGroup.add(roof);
-
-            const doorGeo = new THREE.BoxGeometry(4, 6, 1);
-            const doorMat = new THREE.MeshStandardMaterial({ color: 0x5c4033 });
-            const door = new THREE.Mesh(doorGeo, doorMat);
-            door.position.set(0, 3, 15);
-            houseGroup.add(door);
-
-            const winGeo = new THREE.BoxGeometry(4, 4, 1);
-            const winMat = new THREE.MeshStandardMaterial({ color: 0x87CEFA });
-            const win1 = new THREE.Mesh(winGeo, winMat);
-            win1.position.set(-8, 5, 15);
-            houseGroup.add(win1);
-
-            const win2 = new THREE.Mesh(winGeo, winMat);
-            win2.position.set(8, 5, 15);
-            houseGroup.add(win2);
-
-            scene.add(houseGroup);
-
-            panelsGroup = new THREE.Group();
-            panelsGroup.position.y = 12; 
-            scene.add(panelsGroup);
-
-            function animate() {
-                requestAnimationFrame(animate);
-                controls.update();
-                if(is3DMode) renderer.render(scene, camera);
-            }
-            animate();
+            scene = new THREE.Scene(); scene.background = new THREE.Color(0x87CEEB); 
+            camera = new THREE.PerspectiveCamera(45, container.clientWidth / container.clientHeight, 1, 1000); camera.position.set(0, 45, 65); 
+            renderer = new THREE.WebGLRenderer({ antialias: true }); renderer.setSize(container.clientWidth, container.clientHeight); renderer.shadowMap.enabled = true; renderer.shadowMap.type = THREE.PCFSoftShadowMap; container.appendChild(renderer.domElement);
+            const controls = new THREE.OrbitControls(camera, renderer.domElement); controls.enableDamping = true; controls.maxPolarAngle = Math.PI / 2 - 0.05; 
+            scene.add(new THREE.AmbientLight(0xffffff, 0.5));
+            dirLight = new THREE.DirectionalLight(0xffffee, 1.2); dirLight.castShadow = true; dirLight.shadow.mapSize.width = 1024; dirLight.shadow.mapSize.height = 1024; dirLight.shadow.camera.near = 0.5; dirLight.shadow.camera.far = 200; dirLight.shadow.camera.left = -40; dirLight.shadow.camera.right = 40; dirLight.shadow.camera.top = 40; dirLight.shadow.camera.bottom = -40; scene.add(dirLight);
+            sunMesh = new THREE.Mesh(new THREE.SphereGeometry(3, 16, 16), new THREE.MeshBasicMaterial({ color: 0xffff00 })); scene.add(sunMesh);
+            const plane = new THREE.Mesh(new THREE.PlaneGeometry(150, 150), new THREE.MeshStandardMaterial({ color: 0x4a7c59, roughness: 1 })); plane.rotation.x = -Math.PI / 2; plane.receiveShadow = true; scene.add(plane);
             
-            window.addEventListener('resize', () => {
-                if(is3DMode) {
-                    camera.aspect = container.clientWidth / container.clientHeight;
-                    camera.updateProjectionMatrix();
-                    renderer.setSize(container.clientWidth, container.clientHeight);
-                }
-            });
+            const houseGroup = new THREE.Group();
+            const walls = new THREE.Mesh(new THREE.BoxGeometry(30, 10, 30), new THREE.MeshStandardMaterial({ color: 0xfdfdfd })); walls.position.y = 5; walls.castShadow = true; walls.receiveShadow = true; houseGroup.add(walls);
+            const roof = new THREE.Mesh(new THREE.ConeGeometry(23, 8, 4), new THREE.MeshStandardMaterial({ color: 0x8b4513 })); roof.position.y = 14; roof.rotation.y = Math.PI / 4; roof.castShadow = true; roof.receiveShadow = true; houseGroup.add(roof);
+            scene.add(houseGroup);
+            panelsGroup = new THREE.Group(); panelsGroup.position.y = 12; scene.add(panelsGroup);
+
+            function animate() { requestAnimationFrame(animate); controls.update(); if(is3DMode) renderer.render(scene, camera); } animate();
+            window.addEventListener('resize', () => { if(is3DMode) { camera.aspect = container.clientWidth / container.clientHeight; camera.updateProjectionMatrix(); renderer.setSize(container.clientWidth, container.clientHeight); } });
         }
 
         function build3DPanels() {
-            if(!panelsGroup) return;
-            panelsGroup.clear();
-
-            const spacing = 10; 
-            const cols = Math.ceil(Math.sqrt(arrays.length));
-
+            if(!panelsGroup) return; panelsGroup.clear();
+            const spacing = 10; const cols = Math.ceil(Math.sqrt(arrays.length));
             arrays.forEach((arr, idx) => {
                 const pivot = new THREE.Group();
-                
-                const col = idx % cols;
-                const row = Math.floor(idx / cols);
-                const offsetX = (col - (cols - 1) / 2) * spacing;
-                const offsetZ = (row - (Math.ceil(arrays.length / cols) - 1) / 2) * spacing;
-                pivot.position.set(offsetX, 0, offsetZ);
-
-                const poleGeo = new THREE.CylinderGeometry(0.3, 0.3, 10);
-                const poleMat = new THREE.MeshStandardMaterial({ color: 0xaaaaaa });
-                const pole = new THREE.Mesh(poleGeo, poleMat);
-                pole.position.y = 5; 
-                pole.castShadow = true;
-                pivot.add(pole);
-
-                const panelGeo = new THREE.BoxGeometry(7, 0.2, 9);
-                const panelMat = new THREE.MeshStandardMaterial({ color: colors[idx % colors.length] });
-                const panel = new THREE.Mesh(panelGeo, panelMat);
-                panel.castShadow = true;
-                panel.receiveShadow = true;
-
-                panel.position.y = 10; 
-
-                panel.rotation.x = -arr.tilt * (Math.PI / 180);
-                pivot.rotation.y = -arr.heading * (Math.PI / 180);
-
-                pivot.add(panel);
-                panelsGroup.add(pivot);
+                const col = idx % cols; const row = Math.floor(idx / cols); pivot.position.set((col - (cols - 1) / 2) * spacing, 0, (row - (Math.ceil(arrays.length / cols) - 1) / 2) * spacing);
+                const pole = new THREE.Mesh(new THREE.CylinderGeometry(0.3, 0.3, 10), new THREE.MeshStandardMaterial({ color: 0xaaaaaa })); pole.position.y = 5; pole.castShadow = true; pivot.add(pole);
+                const panel = new THREE.Mesh(new THREE.BoxGeometry(7, 0.2, 9), new THREE.MeshStandardMaterial({ color: colors[idx % colors.length] })); panel.castShadow = true; panel.receiveShadow = true; panel.position.y = 10; panel.rotation.x = -arr.tilt * (Math.PI / 180); pivot.rotation.y = -arr.heading * (Math.PI / 180); pivot.add(panel); panelsGroup.add(pivot);
             });
         }
 
         function update3DSun(sunAz, sunAlt) {
             if(!sunMesh) return;
-            
-            const r = 80;
-            const altRad = sunAlt * (Math.PI / 180);
-            const azRad = -sunAz * (Math.PI / 180); 
-
-            let y = r * Math.sin(altRad);
-            let x = r * Math.cos(altRad) * Math.sin(azRad);
-            let z = r * Math.cos(altRad) * -Math.cos(azRad);
-
-            if(sunAlt <= 0) {
-                sunMesh.visible = false;
-                dirLight.intensity = 0;
-            } else {
-                sunMesh.visible = true;
-                sunMesh.position.set(x, y, z);
-                dirLight.position.set(x, y, z);
-                
-                let intensity = Math.max(0, Math.min(1.2, (sunAlt / 45) * 1.2));
-                let weatherMult = 1 - (cloudCover/100 * 0.8); 
-                dirLight.intensity = intensity * weatherMult;
+            const r = 80; const altRad = sunAlt * (Math.PI / 180); const azRad = -sunAz * (Math.PI / 180); 
+            if(sunAlt <= 0) { sunMesh.visible = false; dirLight.intensity = 0; } else {
+                sunMesh.visible = true; sunMesh.position.set(r*Math.cos(altRad)*Math.sin(azRad), r*Math.sin(altRad), r*Math.cos(altRad)*-Math.cos(azRad)); dirLight.position.copy(sunMesh.position);
+                dirLight.intensity = Math.max(0, Math.min(1.2, (sunAlt / 45) * 1.2)) * (1 - (cloudCover/100 * 0.8));
             }
         }
 
         function toggle3D() {
             is3DMode = !is3DMode;
-            const canvas2D = document.getElementById('sunCanvas');
-            const container3D = document.getElementById('threeContainer');
-            const desc = document.getElementById('viewDesc');
-
-            if(is3DMode) {
-                canvas2D.style.display = 'none';
-                container3D.style.display = 'block';
-                desc.innerHTML = "หมุนกล้อง 3D: คลิกซ้ายค้างแล้วลาก | ซูม: ลูกกลิ้งเมาส์<br>สังเกตการตกกระทบของแสงและเงาตามเวลาจริง";
-                camera.aspect = container3D.clientWidth / container3D.clientHeight;
-                camera.updateProjectionMatrix();
-                renderer.setSize(container3D.clientWidth, container3D.clientHeight);
-            } else {
-                canvas2D.style.display = 'block';
-                container3D.style.display = 'none';
-                desc.innerHTML = "ลูกศรตัวเลข คือทิศของแผงที่คุณติดตั้งไว้ (มองจากมุมสูง)";
-            }
+            document.getElementById('sunCanvas').style.display = is3DMode ? 'none' : 'block';
+            document.getElementById('threeContainer').style.display = is3DMode ? 'block' : 'none';
+            if(is3DMode) { camera.aspect = document.getElementById('threeContainer').clientWidth / document.getElementById('threeContainer').clientHeight; camera.updateProjectionMatrix(); renderer.setSize(document.getElementById('threeContainer').clientWidth, document.getElementById('threeContainer').clientHeight); }
             updateSimulation();
         }
 
@@ -589,6 +412,9 @@
             const times = SunCalc.getTimes(new Date(), lat, lng);
             document.getElementById('lblSunrise').innerText = times.sunrise.toLocaleTimeString('th-TH', {hour: '2-digit', minute:'2-digit'});
             document.getElementById('lblSunset').innerText = times.sunset.toLocaleTimeString('th-TH', {hour: '2-digit', minute:'2-digit'});
+            
+            // ดึงเวลาพระอาทิตย์ขึ้นเก็บไว้คำนวณแบต
+            globalSunRiseTime = times.sunrise.getHours() + times.sunrise.getMinutes()/60;
 
             let currentConditionText = "🌤️ ทั่วไป";
             
@@ -614,13 +440,8 @@
             const systemDerate = 0.80; 
 
             mapMarkers.forEach(m => map.removeLayer(m)); mapMarkers = [];
-            arrays.forEach((arr, idx) => {
-                const svg = `<svg viewBox="0 0 100 100"><path d="M50 5 L85 85 L50 70 L15 85 Z" fill="${colors[idx%colors.length]}" stroke="#000" stroke-width="3"/><circle cx="50" cy="65" r="14" fill="#fff" stroke="#000" stroke-width="2"/><text x="50" y="72" text-anchor="middle" class="arrow-text">${idx+1}</text></svg>`;
-                const icon = L.divIcon({ html: `<div class="custom-arrow-container"><div class="roof-arrow" style="transform: rotate(${arr.heading}deg);">${svg}</div></div>`, className: '', iconSize: [44,44], iconAnchor: [22,30] });
-                mapMarkers.push(L.marker([lat, lng], {icon: icon}).addTo(map));
-            });
-
             let totalMaxKw = 0; let totalLiveKw = 0; let totalDailyKwh = 0; let breakdownHtml = "";
+
             arrays.forEach((arr, idx) => {
                 let maxKw = (arr.count * arr.watt) / 1000; totalMaxKw += maxKw;
                 let liveKw = maxKw * getIncidenceFactor(sunAlt, sunAz, arr.tilt, arr.heading) * systemDerate * currentWeatherFactor;
@@ -639,6 +460,11 @@
                 }
                 totalDailyKwh += dailyKwh;
                 breakdownHtml += `<strong>[ชุดที่ ${idx+1}]</strong> ตอนนี้: <span style="color:#d97706;">${liveKw.toFixed(2)} kW</span> | ทั้งวัน: ${dailyKwh.toFixed(1)} หน่วย<br>`;
+
+                // วาดลูกศรแผนที่
+                const svg = `<svg viewBox="0 0 100 100"><path d="M50 5 L85 85 L50 70 L15 85 Z" fill="${colors[idx%colors.length]}" stroke="#000" stroke-width="3"/><circle cx="50" cy="65" r="14" fill="#fff" stroke="#000" stroke-width="2"/><text x="50" y="72" text-anchor="middle" class="arrow-text">${idx+1}</text></svg>`;
+                const icon = L.divIcon({ html: `<div class="custom-arrow-container"><div class="roof-arrow" style="transform: rotate(${arr.heading}deg);">${svg}</div></div>`, className: '', iconSize: [44,44], iconAnchor: [22,30] });
+                mapMarkers.push(L.marker([lat, lng], {icon: icon}).addTo(map));
             });
 
             document.getElementById('txtMaxKw').innerText = `${totalMaxKw.toFixed(2)} kW`;
@@ -646,60 +472,154 @@
             document.getElementById('txtDailyKwh').innerText = `${totalDailyKwh.toFixed(1)} หน่วย`;
             document.getElementById('arrayBreakdown').innerHTML = breakdownHtml;
 
-            if(is3DMode) {
-                update3DSun(sunAz, sunAlt);
-            } else {
-                drawSkyDome2D(sunAz, sunAlt);
-            }
+            if(is3DMode) { update3DSun(sunAz, sunAlt); } else { drawSkyDome2D(sunAz, sunAlt); }
+            
+            // สั่งคำนวณแบตเตอรี่ใหม่ทุกครั้งที่เมฆเปลี่ยน
+            calculateBattery();
         }
 
         function drawSkyDome2D(sunAz, sunAlt) {
-            const canvas = document.getElementById('sunCanvas');
-            const ctx = canvas.getContext('2d');
-            const cx = canvas.width/2; const cy = canvas.height/2; const maxR = Math.min(cx, cy) - 30;
-            ctx.clearRect(0,0, canvas.width, canvas.height);
-
-            ctx.lineWidth = 1;
-            for(let alt = 0; alt <= 90; alt += 30) {
-                ctx.beginPath(); ctx.arc(cx, cy, maxR * (1 - alt/90), 0, 2 * Math.PI); ctx.strokeStyle = alt===0?'#333':'#ddd'; ctx.stroke();
-            }
+            const canvas = document.getElementById('sunCanvas'); const ctx = canvas.getContext('2d');
+            const cx = canvas.width/2; const cy = canvas.height/2; const maxR = Math.min(cx, cy) - 30; ctx.clearRect(0,0, canvas.width, canvas.height);
+            ctx.lineWidth = 1; for(let alt = 0; alt <= 90; alt += 30) { ctx.beginPath(); ctx.arc(cx, cy, maxR * (1 - alt/90), 0, 2 * Math.PI); ctx.strokeStyle = alt===0?'#333':'#ddd'; ctx.stroke(); }
             ctx.beginPath(); ctx.moveTo(cx, cy-maxR); ctx.lineTo(cx, cy+maxR); ctx.moveTo(cx-maxR, cy); ctx.lineTo(cx+maxR, cy); ctx.strokeStyle='#eee'; ctx.stroke();
-
             ctx.fillStyle = '#666'; ctx.font = 'bold 14px Arial'; ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
             [{t:'N', a:0}, {t:'E', a:90}, {t:'S', a:180}, {t:'W', a:270}].forEach(l => { let rad = (l.a - 90) * Math.PI/180; ctx.fillText(l.t, cx+(maxR+15)*Math.cos(rad), cy+(maxR+15)*Math.sin(rad)); });
-
             ctx.beginPath(); ctx.strokeStyle = 'rgba(255, 165, 0, 0.4)'; ctx.lineWidth = 4; let pathStarted = false;
             for(let m = 0; m < 24*60; m += 15) {
-                let t = new Date(targetDate); t.setHours(0, m, 0, 0);
-                let p = SunCalc.getPosition(t, lat, lng); let a = p.altitude * 180/Math.PI;
-                if(a < 0) continue; 
-                let r = maxR * (1 - a/90); let rad = ((p.azimuth * 180/Math.PI + 180) - 90) * Math.PI/180;
-                let x = cx + r*Math.cos(rad); let y = cy + r*Math.sin(rad);
-                if(!pathStarted) { ctx.moveTo(x, y); pathStarted = true; } else { ctx.lineTo(x, y); }
-            }
-            ctx.stroke();
-
+                let t = new Date(targetDate); t.setHours(0, m, 0, 0); let p = SunCalc.getPosition(t, lat, lng); let a = p.altitude * 180/Math.PI;
+                if(a < 0) continue; let r = maxR * (1 - a/90); let rad = ((p.azimuth * 180/Math.PI + 180) - 90) * Math.PI/180;
+                let x = cx + r*Math.cos(rad); let y = cy + r*Math.sin(rad); if(!pathStarted) { ctx.moveTo(x, y); pathStarted = true; } else { ctx.lineTo(x, y); }
+            } ctx.stroke();
             if (sunAlt > 0) {
-                let r = maxR * (1 - sunAlt/90); let rad = (sunAz - 90) * Math.PI/180;
-                let x = cx + r*Math.cos(rad); let y = cy + r*Math.sin(rad);
-                ctx.beginPath(); ctx.arc(x, y, 12, 0, 2*Math.PI); ctx.fillStyle = 'rgba(255, 200, 0, 0.4)'; ctx.fill();
-                ctx.beginPath(); ctx.arc(x, y, 6, 0, 2*Math.PI); ctx.fillStyle = '#ff9900'; ctx.fill();
+                let r = maxR * (1 - sunAlt/90); let rad = (sunAz - 90) * Math.PI/180; let x = cx + r*Math.cos(rad); let y = cy + r*Math.sin(rad);
+                ctx.beginPath(); ctx.arc(x, y, 12, 0, 2*Math.PI); ctx.fillStyle = 'rgba(255, 200, 0, 0.4)'; ctx.fill(); ctx.beginPath(); ctx.arc(x, y, 6, 0, 2*Math.PI); ctx.fillStyle = '#ff9900'; ctx.fill();
             }
-
             arrays.forEach((arr, idx) => {
                 ctx.save(); ctx.translate(cx, cy); ctx.rotate(arr.heading * Math.PI/180);
                 ctx.beginPath(); ctx.moveTo(0,-40); ctx.lineTo(15,-15); ctx.lineTo(5,-15); ctx.lineTo(5,0); ctx.lineTo(-5,0); ctx.lineTo(-5,-15); ctx.lineTo(-15,-15); ctx.closePath();
                 ctx.fillStyle = colors[idx%colors.length]; ctx.fill(); ctx.lineWidth = 1; ctx.strokeStyle = '#000'; ctx.stroke();
                 ctx.beginPath(); ctx.arc(0,0,8,0,2*Math.PI); ctx.fillStyle='#fff'; ctx.fill(); ctx.stroke();
-                ctx.rotate(-arr.heading * Math.PI/180); ctx.fillStyle='#000'; ctx.font='bold 10px Arial'; ctx.fillText(idx+1, 0, 0);
-                ctx.restore();
+                ctx.rotate(-arr.heading * Math.PI/180); ctx.fillStyle='#000'; ctx.font='bold 10px Arial'; ctx.fillText(idx+1, 0, 0); ctx.restore();
             });
+        }
+
+        // --- ระบบจำลองแบตเตอรี่ (Full Cycle) ---
+        function calculateBattery() {
+            let cap = parseFloat(document.getElementById('batCap').value) || 0;
+            let res = parseFloat(document.getElementById('batRes').value) || 0;
+            let maxChargeRate = parseFloat(document.getElementById('batMaxCharge').value) || 0;
+            let loadDayKw = parseFloat(document.getElementById('loadDay').value) || 0;
+            let loadNightKw = parseFloat(document.getElementById('loadNight').value) || 0;
+            let tStart = document.getElementById('batStart').value;
+            let tEnd = document.getElementById('batEnd').value;
+
+            let usableCap = cap * (1 - res / 100);
+
+            // คำนวณการชาร์จตอนกลางวัน (Daytime Charging)
+            // วนลูปเช็คตั้งแต่พระอาทิตย์ขึ้น ถึง พระอาทิตย์ตก
+            let startChargeTime = globalSunRiseTime; 
+            let currentBatteryLevel = 0; // เริ่มจาก 0 (แบตหมดตอนเช้า)
+            let fullChargeTime = null;
+            let totalGeneratedDay = 0;
+
+            for(let m = Math.floor(startChargeTime * 60); m < 24 * 60; m += 15) {
+                let simHour = Math.floor(m / 60);
+                let simWeatherFactor = hourlyWeatherData ? 1 - (hourlyWeatherData.cloud_cover[simHour] * 0.008) : (1 - cloudCover * 0.008);
+                
+                let t = new Date(); t.setHours(simHour, m % 60, 0, 0);
+                let sunData = SunCalc.getPosition(t, lat, lng);
+                let aAlt = sunData.altitude * 180 / Math.PI;
+                let aAz = (sunData.azimuth * 180 / Math.PI + 180) % 360;
+
+                if (aAlt > 0 && currentBatteryLevel < usableCap) {
+                    let stepTotalKw = 0;
+                    // รวมไฟจากทุกแผง ณ เวลานี้
+                    arrays.forEach(arr => {
+                        let maxKw = (arr.count * arr.watt) / 1000;
+                        let factor = getIncidenceFactor(aAlt, aAz, arr.tilt, arr.heading);
+                        stepTotalKw += maxKw * factor * 0.8 * simWeatherFactor;
+                    });
+
+                    // หักไฟที่บ้านใช้กลางวันก่อน
+                    let availableForCharge = stepTotalKw - loadDayKw;
+                    
+                    if (availableForCharge > 0) {
+                        // เช็คลิมิต Inverter
+                        let actualChargeKw = Math.min(availableForCharge, maxChargeRate);
+                        // แปลงกิโลวัตต์ใน 15 นาที ให้เป็นหน่วย kWh
+                        let chargeKwhThisStep = actualChargeKw * (15/60); 
+                        
+                        currentBatteryLevel += chargeKwhThisStep;
+
+                        // ถ้าแบตเต็มในลูปนี้ ให้เก็บเวลาไว้
+                        if (currentBatteryLevel >= usableCap && !fullChargeTime) {
+                            currentBatteryLevel = usableCap;
+                            fullChargeTime = `${simHour.toString().padStart(2,'0')}:${(m%60).toString().padStart(2,'0')} น.`;
+                        }
+                    }
+                }
+            }
+
+            let chargeHtml = `<div style="padding-bottom: 15px; border-bottom: 1px dashed #ccc; margin-bottom: 15px;">
+                <h4 style="margin:0 0 10px 0; color:#d97706;">☀️ พยากรณ์ชาร์จกลางวัน (Daytime Charge)</h4>
+            `;
+
+            if (currentBatteryLevel >= usableCap) {
+                chargeHtml += `<span class="highlight-green">✅ แบตชาร์จเต็ม 100% แน่นอน</span><br>
+                                คาดว่าจะเต็มเวลาประมาณ: <strong>${fullChargeTime}</strong>`;
+            } else {
+                let fillPct = (currentBatteryLevel / usableCap) * 100;
+                chargeHtml += `<span class="highlight-orange">⚠️ แบตชาร์จไม่เต็ม! (ได้แค่ ${fillPct.toFixed(0)}%)</span><br>
+                                วันนี้แสงไม่พอ หรือกลางวันใช้ไฟเยอะเกินไป`;
+            }
+            chargeHtml += `</div>`;
+
+
+            // คำนวณเอาตัวรอดกลางคืน (Night Survival)
+            let [sH, sM] = tStart.split(':').map(Number);
+            let [eH, eM] = tEnd.split(':').map(Number);
+            let sTime = sH + sM/60;
+            let eTime = eH + eM/60;
+
+            if (eTime <= sTime) eTime += 24; 
+            let durationHours = eTime - sTime;
+            let neededKwh = loadNightKw * durationHours;
+
+            // เอาแบตที่ชาร์จได้ตอนกลางวันมาใช้ต่อตอนกลางคืน
+            let startingNightBat = currentBatteryLevel;
+
+            let dischargeHtml = `<h4 style="margin:0 0 10px 0; color:#0056b3;">🌙 พยากรณ์จ่ายไฟกลางคืน (Night Survival)</h4>`;
+            
+            if (loadNightKw === 0) {
+                dischargeHtml += `<span class="highlight-green">✅ รอดแน่นอน (ไม่ได้ใช้ไฟเลย!)</span>`;
+            } else if (startingNightBat >= neededKwh) {
+                let leftKwh = startingNightBat - neededKwh;
+                let leftPct = (leftKwh / cap) * 100 + res; 
+                dischargeHtml += `<span class="highlight-green">✅ เปิดใช้ยาวๆ ไม่ต้องกลัวดับ!</span><br>
+                    แบตจะเหลือตอนเช้าประมาณ: <strong>${leftPct.toFixed(1)}%</strong>`;
+            } else {
+                let surviveHours = startingNightBat / loadNightKw;
+                let dieTime = sTime + surviveHours;
+                if (dieTime >= 24) dieTime -= 24;
+                
+                let dH = Math.floor(dieTime);
+                let dM = Math.round((dieTime - dH) * 60);
+                if (dM === 60) { dH += 1; dM = 0; }
+                if (dH === 24) dH = 0;
+
+                let timeStr = `${dH.toString().padStart(2, '0')}:${dM.toString().padStart(2, '0')} น.`;
+                dischargeHtml += `<span class="highlight-red">❌ แบตเตอรี่ไม่พอใช้ทั้งคืน!</span><br>
+                    แบตจะหมดลงที่เวลาประมาณ: <strong>${timeStr}</strong>`;
+            }
+
+            document.getElementById('batResultDiv').innerHTML = chargeHtml + dischargeHtml;
         }
 
         init3D();
         renderArrayList();
         fetchHourlyWeather(); 
-        calculateBattery(); // คำนวณแบตเตอรี่ตอนโหลดหน้าเว็บ
+        calculateBattery(); 
         
         setInterval(() => { if(isLiveTime) updateSimulation(); }, 60000); 
 
