@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>ระบบจำลองโซล่าเซลล์ (V.8.6 Full Battery Cycle)</title>
+    <title>ระบบจำลองโซล่าเซลล์ (V.8.7 Battery Fixed)</title>
     
     <link rel="icon" href="data:image/svg+xml,<svg xmlns=%22http://www.w3.org/2000/svg%22 viewBox=%220 0 100 100%22><text y=%22.9em%22 font-size=%2290%22>☀️</text></svg>">
     <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
@@ -61,7 +61,7 @@
         /* สไตล์กล่อง Battery */
         .bat-panel { background: #f8f9fa; border: 1px solid #dee2e6; }
         .bat-section-title { font-weight: bold; color: #0056b3; margin-top: 15px; margin-bottom: 5px; border-bottom: 1px solid #ccc; padding-bottom: 5px;}
-        .bat-result-box { background: white; border: 1px solid #ddd; padding: 15px; border-radius: 8px; margin-top: 15px;}
+        .bat-result-box { background: white; border: 1px solid #ddd; padding: 15px; border-radius: 8px; margin-top: 15px; font-size: 0.95em;}
         .highlight-green { color: #28a745; font-weight: bold;}
         .highlight-red { color: #dc3545; font-weight: bold;}
         .highlight-orange { color: #fd7e14; font-weight: bold;}
@@ -154,6 +154,7 @@
                         <span style="font-size: 0.85em; color:#444;">คาดการณ์ทั้งวัน</span><br><strong style="font-size: 1.3em; color:#155724;" id="txtDailyKwh">0.0 หน่วย</strong>
                     </div>
                 </div>
+                <div id="arrayBreakdown" style="font-size: 0.85em; color:#555; margin-top: 15px; border-top: 1px dashed #c3e6cb; padding-top: 10px; line-height: 1.6;"></div>
             </div>
         </div>
     </div>
@@ -186,12 +187,12 @@
                     <div class="bat-section-title">🏠 การใช้ไฟบ้าน (Load)</div>
                     <div class="spec-grid" style="grid-template-columns: 1fr; gap: 10px;">
                         <div class="spec-input">
-                            <label>ใช้ไฟกลางวันเฉลี่ย (kW) <small>*ขณะมีแดด (เช่น ทำงานอยู่บ้าน = 1.5)</small></label>
-                            <input type="number" id="loadDay" value="1.0" min="0" step="0.1">
+                            <label>ใช้ไฟกลางวันเฉลี่ย (วัตต์/W) <small>*ขณะมีแดด (เช่น 1000W)</small></label>
+                            <input type="number" id="loadDay" value="1000" min="0" step="100">
                         </div>
                         <div class="spec-input">
-                            <label>ใช้ไฟกลางคืนเฉลี่ย (kW) <small>*แอร์, ตู้เย็น (เช่น 1.2)</small></label>
-                            <input type="number" id="loadNight" value="1.2" min="0" step="0.1">
+                            <label>ใช้ไฟกลางคืนเฉลี่ย (วัตต์/W) <small>*เปิดแอร์, ตู้เย็น (เช่น 1200W)</small></label>
+                            <input type="number" id="loadNight" value="1200" min="0" step="100">
                         </div>
                     </div>
                 </div>
@@ -240,22 +241,23 @@
         let cloudCover = 0; 
         let hourlyWeatherData = null;
         let is3DMode = false;
-        let globalSunRiseTime = 6.0; // เก็บเป็นทศนิยมสำหรับแบตเตอรี่
+        let globalSunRiseTime = 6.0; // เก็บเวลาพระอาทิตย์ขึ้นแบบทศนิยม
 
-        // โหลดค่าแบตเตอรี่
+        // โหลดค่าแบตเตอรี่ (เปลี่ยนหน่วย Load เป็น Watts)
         document.getElementById('batCap').value = localStorage.getItem('solar_batCap') || 16;
         document.getElementById('batRes').value = localStorage.getItem('solar_batRes') || 10;
         document.getElementById('batMaxCharge').value = localStorage.getItem('solar_batMaxCharge') || 4.5;
-        document.getElementById('loadDay').value = localStorage.getItem('solar_loadDay') || 1.0;
-        document.getElementById('loadNight').value = localStorage.getItem('solar_loadNight') || 1.2;
+        document.getElementById('loadDay').value = localStorage.getItem('solar_loadDay') || 1000;
+        document.getElementById('loadNight').value = localStorage.getItem('solar_loadNight') || 1200;
         document.getElementById('batStart').value = localStorage.getItem('solar_batStart') || "17:00";
         document.getElementById('batEnd').value = localStorage.getItem('solar_batEnd') || "07:30";
 
+        // *** FIX: แก้ชื่อฟังก์ชันให้ถูกต้อง (calculateBattery) ***
         const batInputs = ['batCap', 'batRes', 'batMaxCharge', 'loadDay', 'loadNight', 'batStart', 'batEnd'];
         batInputs.forEach(id => {
             document.getElementById(id).addEventListener('input', () => {
                 localStorage.setItem('solar_' + id, document.getElementById(id).value);
-                simulateBatteryCycle();
+                calculateBattery(); // เรียกใช้ตัวนี้แทนอันเก่าที่พิมพ์ผิด!
             });
         });
 
@@ -413,7 +415,7 @@
             document.getElementById('lblSunrise').innerText = times.sunrise.toLocaleTimeString('th-TH', {hour: '2-digit', minute:'2-digit'});
             document.getElementById('lblSunset').innerText = times.sunset.toLocaleTimeString('th-TH', {hour: '2-digit', minute:'2-digit'});
             
-            // ดึงเวลาพระอาทิตย์ขึ้นเก็บไว้คำนวณแบต
+            // อัปเดตเวลาพระอาทิตย์ขึ้นเป็นทศนิยมเพื่อคำนวณชาร์จแบต
             globalSunRiseTime = times.sunrise.getHours() + times.sunrise.getMinutes()/60;
 
             let currentConditionText = "🌤️ ทั่วไป";
@@ -461,7 +463,6 @@
                 totalDailyKwh += dailyKwh;
                 breakdownHtml += `<strong>[ชุดที่ ${idx+1}]</strong> ตอนนี้: <span style="color:#d97706;">${liveKw.toFixed(2)} kW</span> | ทั้งวัน: ${dailyKwh.toFixed(1)} หน่วย<br>`;
 
-                // วาดลูกศรแผนที่
                 const svg = `<svg viewBox="0 0 100 100"><path d="M50 5 L85 85 L50 70 L15 85 Z" fill="${colors[idx%colors.length]}" stroke="#000" stroke-width="3"/><circle cx="50" cy="65" r="14" fill="#fff" stroke="#000" stroke-width="2"/><text x="50" y="72" text-anchor="middle" class="arrow-text">${idx+1}</text></svg>`;
                 const icon = L.divIcon({ html: `<div class="custom-arrow-container"><div class="roof-arrow" style="transform: rotate(${arr.heading}deg);">${svg}</div></div>`, className: '', iconSize: [44,44], iconAnchor: [22,30] });
                 mapMarkers.push(L.marker([lat, lng], {icon: icon}).addTo(map));
@@ -474,7 +475,7 @@
 
             if(is3DMode) { update3DSun(sunAz, sunAlt); } else { drawSkyDome2D(sunAz, sunAlt); }
             
-            // สั่งคำนวณแบตเตอรี่ใหม่ทุกครั้งที่เมฆเปลี่ยน
+            // สั่งคำนวณแบตเตอรี่ใหม่ทุกครั้งที่อัปเดต Simulation (เพราะสภาพอากาศเปลี่ยน)
             calculateBattery();
         }
 
@@ -504,24 +505,23 @@
             });
         }
 
-        // --- ระบบจำลองแบตเตอรี่ (Full Cycle) ---
+        // --- ระบบแบตเตอรี่แบบแก้บั๊ก (และแปลงวัตต์เป็นกิโลวัตต์ให้อัตโนมัติ) ---
         function calculateBattery() {
             let cap = parseFloat(document.getElementById('batCap').value) || 0;
             let res = parseFloat(document.getElementById('batRes').value) || 0;
             let maxChargeRate = parseFloat(document.getElementById('batMaxCharge').value) || 0;
-            let loadDayKw = parseFloat(document.getElementById('loadDay').value) || 0;
-            let loadNightKw = parseFloat(document.getElementById('loadNight').value) || 0;
+            
+            // อ่านค่าจาก Input (หน่วยเป็น W) แล้วหาร 1000 ให้เป็น kW
+            let loadDayKw = (parseFloat(document.getElementById('loadDay').value) || 0) / 1000;
+            let loadNightKw = (parseFloat(document.getElementById('loadNight').value) || 0) / 1000;
+            
             let tStart = document.getElementById('batStart').value;
             let tEnd = document.getElementById('batEnd').value;
 
             let usableCap = cap * (1 - res / 100);
-
-            // คำนวณการชาร์จตอนกลางวัน (Daytime Charging)
-            // วนลูปเช็คตั้งแต่พระอาทิตย์ขึ้น ถึง พระอาทิตย์ตก
             let startChargeTime = globalSunRiseTime; 
-            let currentBatteryLevel = 0; // เริ่มจาก 0 (แบตหมดตอนเช้า)
+            let currentBatteryLevel = 0; 
             let fullChargeTime = null;
-            let totalGeneratedDay = 0;
 
             for(let m = Math.floor(startChargeTime * 60); m < 24 * 60; m += 15) {
                 let simHour = Math.floor(m / 60);
@@ -534,25 +534,20 @@
 
                 if (aAlt > 0 && currentBatteryLevel < usableCap) {
                     let stepTotalKw = 0;
-                    // รวมไฟจากทุกแผง ณ เวลานี้
                     arrays.forEach(arr => {
                         let maxKw = (arr.count * arr.watt) / 1000;
                         let factor = getIncidenceFactor(aAlt, aAz, arr.tilt, arr.heading);
                         stepTotalKw += maxKw * factor * 0.8 * simWeatherFactor;
                     });
 
-                    // หักไฟที่บ้านใช้กลางวันก่อน
                     let availableForCharge = stepTotalKw - loadDayKw;
                     
                     if (availableForCharge > 0) {
-                        // เช็คลิมิต Inverter
                         let actualChargeKw = Math.min(availableForCharge, maxChargeRate);
-                        // แปลงกิโลวัตต์ใน 15 นาที ให้เป็นหน่วย kWh
                         let chargeKwhThisStep = actualChargeKw * (15/60); 
                         
                         currentBatteryLevel += chargeKwhThisStep;
 
-                        // ถ้าแบตเต็มในลูปนี้ ให้เก็บเวลาไว้
                         if (currentBatteryLevel >= usableCap && !fullChargeTime) {
                             currentBatteryLevel = usableCap;
                             fullChargeTime = `${simHour.toString().padStart(2,'0')}:${(m%60).toString().padStart(2,'0')} น.`;
@@ -566,17 +561,13 @@
             `;
 
             if (currentBatteryLevel >= usableCap) {
-                chargeHtml += `<span class="highlight-green">✅ แบตชาร์จเต็ม 100% แน่นอน</span><br>
-                                คาดว่าจะเต็มเวลาประมาณ: <strong>${fullChargeTime}</strong>`;
+                chargeHtml += `<span class="highlight-green">✅ แบตชาร์จเต็ม 100% แน่นอน</span><br>คาดว่าจะเต็มเวลาประมาณ: <strong>${fullChargeTime}</strong>`;
             } else {
                 let fillPct = (currentBatteryLevel / usableCap) * 100;
-                chargeHtml += `<span class="highlight-orange">⚠️ แบตชาร์จไม่เต็ม! (ได้แค่ ${fillPct.toFixed(0)}%)</span><br>
-                                วันนี้แสงไม่พอ หรือกลางวันใช้ไฟเยอะเกินไป`;
+                chargeHtml += `<span class="highlight-orange">⚠️ แบตชาร์จไม่เต็ม! (ได้แค่ ${fillPct.toFixed(0)}%)</span><br>วันนี้แสงไม่พอ หรือกลางวันใช้ไฟเยอะเกินไป`;
             }
             chargeHtml += `</div>`;
 
-
-            // คำนวณเอาตัวรอดกลางคืน (Night Survival)
             let [sH, sM] = tStart.split(':').map(Number);
             let [eH, eM] = tEnd.split(':').map(Number);
             let sTime = sH + sM/60;
@@ -585,8 +576,6 @@
             if (eTime <= sTime) eTime += 24; 
             let durationHours = eTime - sTime;
             let neededKwh = loadNightKw * durationHours;
-
-            // เอาแบตที่ชาร์จได้ตอนกลางวันมาใช้ต่อตอนกลางคืน
             let startingNightBat = currentBatteryLevel;
 
             let dischargeHtml = `<h4 style="margin:0 0 10px 0; color:#0056b3;">🌙 พยากรณ์จ่ายไฟกลางคืน (Night Survival)</h4>`;
@@ -596,8 +585,7 @@
             } else if (startingNightBat >= neededKwh) {
                 let leftKwh = startingNightBat - neededKwh;
                 let leftPct = (leftKwh / cap) * 100 + res; 
-                dischargeHtml += `<span class="highlight-green">✅ เปิดใช้ยาวๆ ไม่ต้องกลัวดับ!</span><br>
-                    แบตจะเหลือตอนเช้าประมาณ: <strong>${leftPct.toFixed(1)}%</strong>`;
+                dischargeHtml += `<span class="highlight-green">✅ เปิดใช้ยาวๆ ไม่ต้องกลัวดับ!</span><br>แบตจะเหลือตอนเช้าประมาณ: <strong>${leftPct.toFixed(1)}%</strong>`;
             } else {
                 let surviveHours = startingNightBat / loadNightKw;
                 let dieTime = sTime + surviveHours;
@@ -609,8 +597,7 @@
                 if (dH === 24) dH = 0;
 
                 let timeStr = `${dH.toString().padStart(2, '0')}:${dM.toString().padStart(2, '0')} น.`;
-                dischargeHtml += `<span class="highlight-red">❌ แบตเตอรี่ไม่พอใช้ทั้งคืน!</span><br>
-                    แบตจะหมดลงที่เวลาประมาณ: <strong>${timeStr}</strong>`;
+                dischargeHtml += `<span class="highlight-red">❌ แบตเตอรี่ไม่พอใช้ทั้งคืน!</span><br>แบตจะหมดลงที่เวลาประมาณ: <strong>${timeStr}</strong>`;
             }
 
             document.getElementById('batResultDiv').innerHTML = chargeHtml + dischargeHtml;
@@ -619,7 +606,6 @@
         init3D();
         renderArrayList();
         fetchHourlyWeather(); 
-        calculateBattery(); 
         
         setInterval(() => { if(isLiveTime) updateSimulation(); }, 60000); 
 
