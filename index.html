@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>ระบบจำลองโซล่าเซลล์ (V.9 Auto-Hybrid)</title>
+    <title>ระบบจำลองโซล่าเซลล์ (V.10 Annual Forecast)</title>
     
     <link rel="icon" href="data:image/svg+xml,<svg xmlns=%22http://www.w3.org/2000/svg%22 viewBox=%220 0 100 100%22><text y=%22.9em%22 font-size=%2290%22>☀️</text></svg>">
     <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
@@ -62,16 +62,16 @@
         .highlight-red { color: #dc3545; font-weight: bold;}
         .highlight-orange { color: #fd7e14; font-weight: bold;}
         .calibrate-box { background: #e2e3e5; padding: 12px; border-radius: 8px; margin-bottom: 15px; border-left: 5px solid #6c757d;}
-        
-        /* สไตล์เวลาอัตโนมัติ */
         .auto-time-box { background: #d4edda; color: #155724; border: 1px solid #c3e6cb; padding: 8px; border-radius: 4px; margin-top: 3px; font-weight: bold; text-align: center; }
+        
+        .chart-container { position: relative; height: 350px; width: 100%; margin-top: 20px;}
     </style>
 </head>
 <body>
 
     <h1 style="text-align: center; color: #2c3e50; margin-bottom: 5px; font-size: 1.5em;">☀️ ระบบจำลองโซล่าเซลล์อัจฉริยะ</h1>
     <p style="text-align: center; color: #666; max-width: 800px; margin-top: 0; margin-bottom: 20px; font-size: 0.9em;">
-        สลับมุมมองเป็น 3D เพื่อดูแสงและเงาตกกระทบบนแผงได้แบบเรียลไทม์
+        สลับมุมมองเป็น 3D เพื่อดูแสงและเงาตกกระทบบนแผงได้แบบเรียลไทม์ พร้อมกราฟพยากรณ์รายปี
     </p>
 
     <div class="container">
@@ -104,7 +104,7 @@
                 <div class="compass-label-3d label-e">ต.อ. (E)</div>
                 <div class="compass-label-3d label-w">ต.ต. (W)</div>
             </div>
-            <p id="viewDesc" style="text-align: center; color: #666; font-size: 0.85em; margin-top: 10px;">ลูกศรตัวเลข คือทิศของแผงที่คุณติดตั้งไว้</p>
+            <p id="viewDesc" style="text-align: center; color: #666; font-size: 0.85em; margin-top: 10px;">ลูกศรตัวเลข คือทิศของแผงที่คุณติดตั้งไว้ (มองจากมุมสูง)</p>
         </div>
     </div>
 
@@ -156,7 +156,7 @@
                         <span style="font-size: 0.85em; color:#444;">กำลังผลิต เวลา <span id="txtSimTime">--:--</span></span><br><strong style="font-size: 1.8em; color:#d97706;" id="txtLiveKw">0.00 kW</strong>
                     </div>
                     <div style="flex: 1; min-width: 140px; margin: 5px;">
-                        <span style="font-size: 0.85em; color:#444;">คาดการณ์ทั้งวัน</span><br><strong style="font-size: 1.3em; color:#155724;" id="txtDailyKwh">0.0 หน่วย</strong>
+                        <span style="font-size: 0.85em; color:#444;">คาดการณ์วันนี้</span><br><strong style="font-size: 1.3em; color:#155724;" id="txtDailyKwh">0.0 หน่วย</strong>
                     </div>
                 </div>
                 <div id="arrayBreakdown" style="font-size: 0.85em; color:#555; margin-top: 15px; border-top: 1px dashed #c3e6cb; padding-top: 10px; line-height: 1.6;"></div>
@@ -215,7 +215,7 @@
                         </div>
                     </div>
                     <div style="font-size: 0.8em; color: #888; margin-top: 10px;">
-                        *ระบบจะหยุดดึงแบตอัตโนมัติ เมื่อแดดออกมากพอที่จะจ่ายไฟให้บ้านได้ทั้งหมด (ตาม Load กลางวัน)
+                        *ระบบจะหยุดดึงแบตอัตโนมัติ เมื่อแดดออกมากพอที่จะจ่ายไฟให้บ้านได้ทั้งหมด
                     </div>
                 </div>
             </div>
@@ -224,10 +224,28 @@
         </div>
     </div>
 
+    <div class="container">
+        <div class="panel" style="background: #fff; border: 2px solid #28a745;">
+            <div class="controls-header">
+                <h2 style="margin: 0; color: #155724;">📊 6. พยากรณ์รายปี (Annual Forecast)</h2>
+                <div style="background: #e8f5e9; padding: 5px 15px; border-radius: 20px; color: #155724; font-weight: bold;">
+                    รวมทั้งปี: <span id="annualTotalTxt" style="font-size: 1.2em;">0</span> หน่วย
+                </div>
+            </div>
+            <p style="font-size: 0.9em; color: #666; margin-top: 5px;">
+                ระบบใช้สูตรดาราศาสตร์คำนวณวงโคจรดวงอาทิตย์ล่วงหน้า 365 วัน ผสานกับข้อมูลสถิติแสงอาทิตย์ย้อนหลัง (Historical Solar Irradiance) เพื่อวิเคราะห์ผลกระทบจากฤดูกาลของไทย
+            </p>
+            <div class="chart-container">
+                <canvas id="annualChartCanvas"></canvas>
+            </div>
+        </div>
+    </div>
+
     <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/suncalc/1.9.0/suncalc.min.js"></script>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
     <script src="https://cdn.jsdelivr.net/npm/three@0.128.0/examples/js/controls/OrbitControls.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
 
     <script>
         let lat = parseFloat(localStorage.getItem('solar_lat')) || 18.7441;
@@ -248,6 +266,9 @@
         let is3DMode = false;
         let globalSunRiseTime = 6.0;
 
+        // ตัวแปรกราฟ
+        let annualChart = null;
+
         document.getElementById('sysEff').value = localStorage.getItem('solar_sysEff') || 85;
         document.getElementById('lblSysEff').innerText = document.getElementById('sysEff').value + "%";
         document.getElementById('sysEff').addEventListener('input', (e) => {
@@ -262,13 +283,11 @@
         document.getElementById('loadDay').value = localStorage.getItem('solar_loadDay') || 1000;
         document.getElementById('loadNight').value = localStorage.getItem('solar_loadNight') || 1200;
         document.getElementById('batStart').value = localStorage.getItem('solar_batStart') || "17:00";
-        // เอา batEnd ออกจาก LocalStorage เพราะคำนวณออโต้แล้ว
 
         const batInputs = ['batCap', 'batRes', 'batMaxCharge', 'loadDay', 'loadNight', 'batStart'];
         batInputs.forEach(id => {
             document.getElementById(id).addEventListener('input', () => {
                 localStorage.setItem('solar_' + id, document.getElementById(id).value);
-                // สั่งคำนวณโดยใช้ค่าจากการเลื่อนสไลเดอร์เมฆ (isUserOverride = จริงมั้ย เช็คจากปุ่ม Live)
                 calculateBattery(!isLiveTime); 
             });
         });
@@ -348,12 +367,7 @@
 
         function handleTimeSlider() { isLiveTime = false; let mins = parseInt(document.getElementById('timeSlider').value); targetDate = new Date(); targetDate.setHours(Math.floor(mins/60), mins%60, 0, 0); document.getElementById('btnLive').style.background = '#dc3545'; updateSimulation(); }
         function setLiveTime() { isLiveTime = true; document.getElementById('btnLive').style.background = '#17a2b8'; updateSimulation(); }
-        
-        // ฟังก์ชันรับการเลื่อนเมฆแบบแมนนวล ส่ง flag ไปบอกว่า "อย่าใช้ดาวเทียมนะ ฉันจะตั้งเอง"
-        function userOverrideCloud() { 
-            isLiveTime = false; document.getElementById('btnLive').style.background = '#dc3545';
-            updateSimulation(true); 
-        }
+        function userOverrideCloud() { isLiveTime = false; document.getElementById('btnLive').style.background = '#dc3545'; updateSimulation(true); }
 
         function decodeWeatherCode(code) {
             if(code <= 3) return { text: "🌤️ แจ่มใส/มีเมฆ", warn: false };
@@ -471,7 +485,7 @@
 
             arrays.forEach((arr, idx) => {
                 let maxKw = (arr.count * arr.watt) / 1000; totalMaxKw += maxKw;
-                let bifacialMultiplier = 1 + (arr.bifacialGain || 0);
+                let bifacialMultiplier = 1 + (parseFloat(arr.bifacialGain) || 0);
 
                 let liveKw = maxKw * getIncidenceFactor(sunAlt, sunAz, arr.tilt, arr.heading) * systemDerate * currentWeatherFactor * bifacialMultiplier;
                 totalLiveKw += liveKw;
@@ -479,7 +493,6 @@
                 let dailyKwh = 0;
                 for(let m = 0; m < 24 * 60; m += 15) {
                     let simHour = Math.floor(m / 60);
-                    // ถ้าตั้งค่าแมนนวล ให้ยึดค่าสไลเดอร์เมฆตลอดทั้งวัน
                     let simWeatherFactor = (hourlyWeatherData && !isUserOverrideCloud) ? 1 - (hourlyWeatherData.cloud_cover[simHour] * 0.008) : currentWeatherFactor;
                     
                     let t = new Date(); t.setHours(simHour, m % 60, 0, 0);
@@ -503,9 +516,8 @@
             document.getElementById('arrayBreakdown').innerHTML = breakdownHtml;
 
             if(is3DMode) { update3DSun(sunAz, sunAlt); } else { drawSkyDome2D(sunAz, sunAlt); }
-            
-            // ส่งค่าลงไปให้แบตเตอรี่รู้ด้วยว่า แมนนวลเมฆอยู่หรือเปล่า
             calculateBattery(isUserOverrideCloud);
+            updateAnnualChart(); // อัปเดตกราฟรายปีด้วย!
         }
 
         function drawSkyDome2D(sunAz, sunAlt) {
@@ -534,7 +546,6 @@
             });
         }
 
-        // รับค่า Parameter แมนนวลเข้ามา
         function calculateBattery(isUserOverrideCloud = false) {
             let cap = parseFloat(document.getElementById('batCap').value) || 0;
             let res = parseFloat(document.getElementById('batRes').value) || 0;
@@ -549,11 +560,9 @@
             let fullChargeTime = null;
             let systemDerate = parseFloat(document.getElementById('sysEff').value) / 100;
             
-            // --- ระบบ Auto เลิกดึงแบตตอนเช้า ---
-            let autoEndTime = 8.0; // เผื่อเหนียวไว้ที่ 08:00
+            let autoEndTime = 8.0; 
             let autoEndStr = "08:00"; 
             
-            // หาจุดที่แดดแรงพอจะรันโหลดทั้งบ้านโดยไม่พึ่งแบต
             for(let m = Math.floor(globalSunRiseTime * 60); m < 12 * 60; m += 15) {
                 let simHour = Math.floor(m / 60);
                 let simWeatherFactor = (hourlyWeatherData && !isUserOverrideCloud) ? 1 - (hourlyWeatherData.cloud_cover[simHour] * 0.008) : (1 - cloudCover * 0.008);
@@ -571,7 +580,6 @@
                         stepTotalKw += maxKw * factor * systemDerate * simWeatherFactor * bifacialMultiplier;
                     });
                     
-                    // ถ้าแผงผลิตไฟได้มากกว่าโหลดกลางวัน แสดงว่าโซล่าเซลล์เทคโอเวอร์ 100% แล้ว!
                     if (stepTotalKw >= loadDayKw) {
                         autoEndTime = simHour + (m % 60) / 60;
                         autoEndStr = `${simHour.toString().padStart(2,'0')}:${(m%60).toString().padStart(2,'0')}`;
@@ -580,10 +588,8 @@
                 }
             }
             
-            // โชว์เวลา Auto บนหน้าเว็บ
             document.getElementById('batEndAuto').innerText = autoEndStr + " น.";
 
-            // วนลูปชาร์จกลางวัน (เหมือนเดิม)
             for(let m = Math.floor(startChargeTime * 60); m < 24 * 60; m += 15) {
                 let simHour = Math.floor(m / 60);
                 let simWeatherFactor = (hourlyWeatherData && !isUserOverrideCloud) ? 1 - (hourlyWeatherData.cloud_cover[simHour] * 0.008) : (1 - cloudCover * 0.008);
@@ -628,10 +634,9 @@
             }
             chargeHtml += `</div>`;
 
-            // คำนวณช่วงเวลาดึงแบต (ใช้ AutoEndTime แทน)
             let [sH, sM] = tStart.split(':').map(Number);
             let sTime = sH + sM/60;
-            let eTime = autoEndTime; // ออโต้เลยจ้า
+            let eTime = autoEndTime; 
 
             if (eTime <= sTime) eTime += 24; 
             let durationHours = eTime - sTime;
@@ -661,6 +666,78 @@
             }
 
             document.getElementById('batResultDiv').innerHTML = chargeHtml + dischargeHtml;
+        }
+
+        // --- ระบบพยากรณ์รายปี (Annual Forecast) ---
+        function updateAnnualChart() {
+            const monthlyKwh = [];
+            const monthLabels = ['ม.ค.', 'ก.พ.', 'มี.ค.', 'เม.ย.', 'พ.ค.', 'มิ.ย.', 'ก.ค.', 'ส.ค.', 'ก.ย.', 'ต.ค.', 'พ.ย.', 'ธ.ค.'];
+            const daysInMonth = [31, 28, 31, 30, 31, 30, 31, 31, 30, 31, 30, 31];
+            
+            // สถิติเมฆฝนของประเทศไทย (ค่าประเมินคร่าวๆ: หน้าฝนกราฟตก หน้าร้อนกราฟพุ่ง)
+            // ตัวคูณ (Derate Factor) ประจำเดือน
+            const histFactor = [0.85, 0.85, 0.80, 0.75, 0.65, 0.60, 0.55, 0.50, 0.55, 0.65, 0.75, 0.85];
+
+            let totalYear = 0;
+            let systemDerate = parseFloat(document.getElementById('sysEff').value) / 100;
+
+            for(let mo = 0; mo < 12; mo++) {
+                // สมมติใช้วันที่ 15 ของทุกเดือนเป็นตัวแทนในการคำนวณวงโคจร
+                let testDate = new Date(targetDate.getFullYear(), mo, 15);
+                let dailyKwh = 0;
+
+                for(let m = 6 * 60; m < 18 * 60; m += 15) { 
+                    let t = new Date(testDate); t.setHours(Math.floor(m / 60), m % 60, 0, 0);
+                    let p = SunCalc.getPosition(t, lat, lng);
+                    let aAlt = p.altitude * 180 / Math.PI;
+                    if(aAlt > 0) {
+                        let aAz = (p.azimuth * 180 / Math.PI + 180) % 360;
+                        arrays.forEach(arr => {
+                            let maxKw = (arr.count * arr.watt) / 1000;
+                            let bMultiplier = 1 + (parseFloat(arr.bifacialGain) || 0);
+                            let factor = getIncidenceFactor(aAlt, aAz, arr.tilt, arr.heading);
+                            dailyKwh += (maxKw * factor * systemDerate * bMultiplier) * (15/60);
+                        });
+                    }
+                }
+                
+                // เอาไฟ 1 วัน x จำนวนวันในเดือน x ตัวคูณสภาพอากาศของไทย
+                let monthTotal = dailyKwh * daysInMonth[mo] * histFactor[mo];
+                monthlyKwh.push(monthTotal);
+                totalYear += monthTotal;
+            }
+
+            document.getElementById('annualTotalTxt').innerText = totalYear.toLocaleString('en-US', {maximumFractionDigits:1});
+
+            if(annualChart) {
+                annualChart.data.datasets[0].data = monthlyKwh;
+                annualChart.update();
+            } else {
+                const ctx = document.getElementById('annualChartCanvas').getContext('2d');
+                annualChart = new Chart(ctx, {
+                    type: 'bar',
+                    data: {
+                        labels: monthLabels,
+                        datasets: [{
+                            label: 'หน่วยผลิตไฟฟ้า (kWh)',
+                            data: monthlyKwh,
+                            backgroundColor: '#28a745',
+                            borderRadius: 4
+                        }]
+                    },
+                    options: {
+                        responsive: true,
+                        maintainAspectRatio: false,
+                        plugins: {
+                            legend: { display: false },
+                            tooltip: { callbacks: { label: function(context) { return context.parsed.y.toFixed(1) + ' หน่วย'; } } }
+                        },
+                        scales: {
+                            y: { beginAtZero: true, title: { display: true, text: 'หน่วยไฟฟ้า (kWh)' } }
+                        }
+                    }
+                });
+            }
         }
 
         init3D();
