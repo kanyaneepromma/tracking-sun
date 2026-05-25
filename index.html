@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>ระบบจำลองโซล่าเซลล์ (V.10.3 Battery UI Fix)</title>
+    <title>ระบบจำลองโซล่าเซลล์ (V.10.4 Solid Sun)</title>
     
     <link rel="icon" href="data:image/svg+xml,<svg xmlns=%22http://www.w3.org/2000/svg%22 viewBox=%220 0 100 100%22><text y=%22.9em%22 font-size=%2290%22>☀️</text></svg>">
     <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
@@ -525,32 +525,53 @@
             updateAnnualChart(); 
         }
 
+        // *** อัปเดตฟังก์ชันนี้สำหรับ V.10.4 ***
         function drawSkyDome2D(sunAz, sunAlt) {
             const canvas = document.getElementById('sunCanvas'); const ctx = canvas.getContext('2d');
             const cx = canvas.width/2; const cy = canvas.height/2; const maxR = Math.min(cx, cy) - 30; ctx.clearRect(0,0, canvas.width, canvas.height);
-            ctx.lineWidth = 1; for(let alt = 0; alt <= 90; alt += 30) { ctx.beginPath(); ctx.arc(cx, cy, maxR * (1 - alt/90), 0, 2 * Math.PI); ctx.strokeStyle = alt===0?'#333':'#ddd'; ctx.stroke(); }
+            
+            ctx.lineWidth = 1; 
+            for(let alt = 0; alt <= 90; alt += 30) { 
+                ctx.beginPath(); ctx.arc(cx, cy, maxR * (1 - alt/90), 0, 2 * Math.PI); ctx.strokeStyle = alt===0?'#333':'#ddd'; ctx.stroke(); 
+            }
+            
             ctx.beginPath(); ctx.moveTo(cx, cy-maxR); ctx.lineTo(cx, cy+maxR); ctx.moveTo(cx-maxR, cy); ctx.lineTo(cx+maxR, cy); ctx.strokeStyle='#eee'; ctx.stroke();
+            
             ctx.fillStyle = '#666'; ctx.font = 'bold 14px Arial'; ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
-            [{t:'N', a:0}, {t:'E', a:90}, {t:'S', a:180}, {t:'W', a:270}].forEach(l => { let rad = (l.a - 90) * Math.PI/180; ctx.fillText(l.t, cx+(maxR+15)*Math.cos(rad), cy+(maxR+15)*Math.sin(rad)); });
+            [{t:'N', a:0}, {t:'E', a:90}, {t:'S', a:180}, {t:'W', a:270}].forEach(l => { 
+                let rad = (l.a - 90) * Math.PI/180; ctx.fillText(l.t, cx+(maxR+15)*Math.cos(rad), cy+(maxR+15)*Math.sin(rad)); 
+            });
+            
             ctx.beginPath(); ctx.strokeStyle = 'rgba(255, 165, 0, 0.4)'; ctx.lineWidth = 4; let pathStarted = false;
             for(let m = 0; m < 24*60; m += 15) {
                 let t = new Date(targetDate); t.setHours(0, m, 0, 0); let p = SunCalc.getPosition(t, lat, lng); let a = p.altitude * 180/Math.PI;
                 if(a < 0) continue; let r = maxR * (1 - a/90); let rad = ((p.azimuth * 180/Math.PI + 180) - 90) * Math.PI/180;
                 let x = cx + r*Math.cos(rad); let y = cy + r*Math.sin(rad); if(!pathStarted) { ctx.moveTo(x, y); pathStarted = true; } else { ctx.lineTo(x, y); }
-            } ctx.stroke();
+            } 
+            ctx.stroke();
+
             if (sunAlt > 0) {
                 let r = maxR * (1 - sunAlt/90); let rad = (sunAz - 90) * Math.PI/180; let x = cx + r*Math.cos(rad); let y = cy + r*Math.sin(rad);
                 
+                // 1. วาดรัศมีสีทองโปร่งแสง
                 ctx.beginPath(); 
                 ctx.arc(x, y, 15, 0, 2*Math.PI); 
                 ctx.fillStyle = 'rgba(255, 215, 0, 0.4)'; 
                 ctx.fill(); 
                 
+                // 2. แผ่นพื้นทึบแสง (Solid Mask) บังเส้นสีส้ม
+                ctx.beginPath(); 
+                ctx.arc(x, y, 10, 0, 2*Math.PI); 
+                ctx.fillStyle = '#ffffff'; 
+                ctx.fill();
+                
+                // 3. อิโมจิ
                 ctx.font = '22px Arial'; 
                 ctx.textAlign = 'center'; 
                 ctx.textBaseline = 'middle'; 
                 ctx.fillText('☀️', x, y+2);
             }
+            
             arrays.forEach((arr, idx) => {
                 ctx.save(); ctx.translate(cx, cy); ctx.rotate(arr.heading * Math.PI/180);
                 ctx.beginPath(); ctx.moveTo(0,-40); ctx.lineTo(15,-15); ctx.lineTo(5,-15); ctx.lineTo(5,0); ctx.lineTo(-5,0); ctx.lineTo(-5,-15); ctx.lineTo(-15,-15); ctx.closePath();
@@ -664,8 +685,6 @@
             } else if (startingNightBat >= neededKwh) {
                 let leftKwh = startingNightBat - neededKwh;
                 let leftPct = (leftKwh / cap) * 100 + res; 
-                
-                // --- ส่วนที่แก้ไข: เพิ่มการแสดงผล kWh คู่กับ % ---
                 dischargeHtml += `<span class="highlight-green">✅ เปิดใช้ยาวๆ ไม่ต้องกลัวดับ!</span><br>
                     แบตจะเหลือตอนเช้าประมาณ: <strong>${leftPct.toFixed(1)}% (${leftKwh.toFixed(1)} kWh)</strong>`;
             } else {
@@ -691,7 +710,6 @@
             const monthLabels = ['ม.ค.', 'ก.พ.', 'มี.ค.', 'เม.ย.', 'พ.ค.', 'มิ.ย.', 'ก.ค.', 'ส.ค.', 'ก.ย.', 'ต.ค.', 'พ.ย.', 'ธ.ค.'];
             const daysInMonth = [31, 28, 31, 30, 31, 30, 31, 31, 30, 31, 30, 31];
             
-            // สถิติเมฆฝนของประเทศไทย (ค่าประเมินคร่าวๆ: หน้าฝนกราฟตก หน้าร้อนกราฟพุ่ง)
             const histFactor = [0.85, 0.85, 0.80, 0.75, 0.65, 0.60, 0.55, 0.50, 0.55, 0.65, 0.75, 0.85];
 
             let totalYear = 0;
