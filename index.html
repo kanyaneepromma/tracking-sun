@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>ระบบจำลองโซล่าเซลล์ (V.10 Annual Forecast)</title>
+    <title>ระบบจำลองโซล่าเซลล์ (V.10.1 iOS Fix)</title>
     
     <link rel="icon" href="data:image/svg+xml,<svg xmlns=%22http://www.w3.org/2000/svg%22 viewBox=%220 0 100 100%22><text y=%22.9em%22 font-size=%2290%22>☀️</text></svg>">
     <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
@@ -33,7 +33,22 @@
         
         .spec-grid { display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 10px; margin-bottom: 10px; }
         .spec-input { display: flex; flex-direction: column; font-size: 0.85em; }
-        .spec-input input, .spec-input select { width: 100%; padding: 8px; border: 1px solid #ccc; border-radius: 4px; margin-top: 3px; font-family: inherit;}
+        
+        /* แก้บั๊ก UI บน iPhone: บังคับ Font-size 16px และเพิ่มความสูงขั้นต่ำ */
+        .spec-input input, .spec-input select { 
+            width: 100%; 
+            padding: 8px; 
+            border: 1px solid #ccc; 
+            border-radius: 4px; 
+            margin-top: 3px; 
+            font-family: inherit;
+            font-size: 16px; /* บังคับ 16px กัน iOS ซูมจอหรือบีบ Pop-up */
+            min-height: 38px;
+            background-color: #fff;
+        }
+        /* แก้ปัญหากล่องเวลา (Time) บน Safari */
+        input[type="time"] { appearance: none; -webkit-appearance: none; }
+        
         @media (max-width: 480px) { .spec-grid { grid-template-columns: 1fr 1fr; } .spec-grid .spec-input:nth-child(3) { grid-column: span 2; } }
         
         .slider-box { background: #fff3cd; padding: 12px; border-radius: 6px; font-size: 0.9em;}
@@ -266,7 +281,6 @@
         let is3DMode = false;
         let globalSunRiseTime = 6.0;
 
-        // ตัวแปรกราฟ
         let annualChart = null;
 
         document.getElementById('sysEff').value = localStorage.getItem('solar_sysEff') || 85;
@@ -331,7 +345,7 @@
                         <div class="spec-input"><label>วัตต์</label><input type="number" data-id="${arr.id}" data-field="watt" value="${arr.watt}"></div>
                         <div class="spec-input"><label>เอียง (°)</label><input type="number" data-id="${arr.id}" data-field="tilt" value="${arr.tilt}"></div>
                         <div class="spec-input" style="grid-column: span 3; margin-top: 5px;">
-                            <label>ชนิดแผง / การสะท้อนของพื้นใต้แผง (Bifacial Gain)</label>
+                            <label>ชนิดแผง / การสะท้อนของพื้น (Bifacial Gain)</label>
                             <select data-id="${arr.id}" data-field="bifacialGain">
                                 <option value="0" ${arr.bifacialGain === 0 ? 'selected' : ''}>ธรรมดา (หน้าเดียว) / ไม่สะท้อน (0%)</option>
                                 <option value="0.05" ${arr.bifacialGain === 0.05 ? 'selected' : ''}>แผง 2 หน้า + พื้นกระเบื้องเข้ม/ดิน (+5%)</option>
@@ -517,7 +531,7 @@
 
             if(is3DMode) { update3DSun(sunAz, sunAlt); } else { drawSkyDome2D(sunAz, sunAlt); }
             calculateBattery(isUserOverrideCloud);
-            updateAnnualChart(); // อัปเดตกราฟรายปีด้วย!
+            updateAnnualChart(); 
         }
 
         function drawSkyDome2D(sunAz, sunAlt) {
@@ -675,14 +689,12 @@
             const daysInMonth = [31, 28, 31, 30, 31, 30, 31, 31, 30, 31, 30, 31];
             
             // สถิติเมฆฝนของประเทศไทย (ค่าประเมินคร่าวๆ: หน้าฝนกราฟตก หน้าร้อนกราฟพุ่ง)
-            // ตัวคูณ (Derate Factor) ประจำเดือน
             const histFactor = [0.85, 0.85, 0.80, 0.75, 0.65, 0.60, 0.55, 0.50, 0.55, 0.65, 0.75, 0.85];
 
             let totalYear = 0;
             let systemDerate = parseFloat(document.getElementById('sysEff').value) / 100;
 
             for(let mo = 0; mo < 12; mo++) {
-                // สมมติใช้วันที่ 15 ของทุกเดือนเป็นตัวแทนในการคำนวณวงโคจร
                 let testDate = new Date(targetDate.getFullYear(), mo, 15);
                 let dailyKwh = 0;
 
@@ -701,7 +713,6 @@
                     }
                 }
                 
-                // เอาไฟ 1 วัน x จำนวนวันในเดือน x ตัวคูณสภาพอากาศของไทย
                 let monthTotal = dailyKwh * daysInMonth[mo] * histFactor[mo];
                 monthlyKwh.push(monthTotal);
                 totalYear += monthTotal;
