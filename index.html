@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>ระบบจำลองโซล่าเซลล์ (V.11 Dip Refill Calculator)</title>
+    <title>ระบบจำลองโซล่าเซลล์ (V.11.1 Dynamic Refill)</title>
     
     <link rel="icon" href="data:image/svg+xml,<svg xmlns=%22http://www.w3.org/2000/svg%22 viewBox=%220 0 100 100%22><text y=%22.9em%22 font-size=%2290%22>☀️</text></svg>">
     <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
@@ -180,7 +180,7 @@
                             <input type="number" id="batCap" value="16" min="1" step="0.5">
                         </div>
                         <div class="spec-input">
-                            <label>สำรองไม่ใช้ (%) <small>*กลางคืน</small></label>
+                            <label>สำรองไม่ใช้ (%)</label>
                             <input type="number" id="batRes" value="10" min="0" max="90" step="5">
                         </div>
                         <div class="spec-input" style="grid-column: span 2;">
@@ -194,11 +194,11 @@
                     <div class="bat-section-title">🏠 การใช้ไฟบ้าน (Load)</div>
                     <div class="spec-grid" style="grid-template-columns: 1fr; gap: 10px;">
                         <div class="spec-input">
-                            <label>ใช้ไฟกลางวันเฉลี่ย (วัตต์/W) <small>*ขณะมีแดด</small></label>
+                            <label>ใช้ไฟกลางวันเฉลี่ย (วัตต์/W)</label>
                             <input type="number" id="loadDay" value="1000" min="0" step="100">
                         </div>
                         <div class="spec-input">
-                            <label>ใช้ไฟกลางคืนเฉลี่ย (วัตต์/W) <small>*เปิดแอร์, ตู้เย็น</small></label>
+                            <label>ใช้ไฟกลางคืนเฉลี่ย (วัตต์/W)</label>
                             <input type="number" id="loadNight" value="1200" min="0" step="100">
                         </div>
                     </div>
@@ -212,7 +212,7 @@
                             <input type="time" id="batStart" value="17:00">
                         </div>
                         <div class="spec-input">
-                            <label>เลิกดึงแบต <small>*คำนวณอัตโนมัติ</small></label>
+                            <label>เลิกดึงแบต</label>
                             <div id="batEndAuto" class="auto-time-box">--:-- น.</div>
                         </div>
                     </div>
@@ -226,21 +226,25 @@
     <div class="container">
         <div class="panel dip-panel">
             <h2 style="color: #d97706; margin-bottom: 5px;">☁️ 6. เครื่องมือคำนวณระยะเวลาชาร์จคืน (Dip Refill Calculator)</h2>
-            <p style="font-size: 0.9em; color: #666; margin-top: 0;">จำลองว่าหากคุณดึงแบตเตอรี่สำรองไปใช้ตอนเมฆบัง เมื่อแดดกลับมาจะใช้เวลากี่นาทีในการชาร์จคืน (ตอบโจทย์ Case A-G ของคุณ)</p>
+            <p style="font-size: 0.9em; color: #666; margin-top: 0;">จำลองสถานการณ์ดึงแบตเตอรี่ไปใช้ตอนเมฆบัง เพื่อดูว่าจะชาร์จกลับมาคืนได้ทันเวลาหรือไม่</p>
             
             <div style="display: flex; flex-wrap: wrap; gap: 20px;">
                 <div style="flex: 1; min-width: 280px;">
                     <div class="spec-grid" style="grid-template-columns: 1fr 1fr; gap: 10px;">
-                        <div class="spec-input" style="grid-column: span 2;">
-                            <label>โควต้าแบตที่ถูกดึงไปใช้ (%) <small>*ตัวอย่าง: 20%</small></label>
+                        <div class="spec-input">
+                            <label>โควต้าสำรองสูงสุด (%) <small>*ลิมิตที่คุณตั้งไว้</small></label>
                             <input type="number" id="dipReservePct" value="20" min="1" max="100" step="5">
+                        </div>
+                        <div class="spec-input">
+                            <label>ไฟที่ถูกดึงไปใช้จริง (kWh) <small>*สมมติเมฆบัง</small></label>
+                            <input type="number" id="dipActualUsed" value="1.5" min="0.1" step="0.1">
                         </div>
                         <div class="spec-input">
                             <label>เวลาแดดกลับมา (เริ่มชาร์จ)</label>
                             <input type="time" id="rechargeStart" value="14:30">
                         </div>
                         <div class="spec-input">
-                            <label>เวลาเส้นตาย (เริ่มจ่ายไฟกลางคืน)</label>
+                            <label>เวลาเส้นตาย (เริ่มจ่ายไฟมืด)</label>
                             <input type="time" id="rechargeEnd" value="16:00">
                         </div>
                     </div>
@@ -298,7 +302,7 @@
         let hourlyWeatherData = null;
         let is3DMode = false;
         let globalSunRiseTime = 6.0;
-        let isUserOverrideCloudFlag = false; // ติดตามสถานะว่าปรับเมฆเองหรือไม่
+        let isUserOverrideCloudFlag = false; 
 
         let annualChart = null;
 
@@ -317,12 +321,12 @@
         document.getElementById('loadNight').value = localStorage.getItem('solar_loadNight') || 1200;
         document.getElementById('batStart').value = localStorage.getItem('solar_batStart') || "17:00";
 
-        // โหลดค่า Dip Refill
         document.getElementById('dipReservePct').value = localStorage.getItem('solar_dipReservePct') || 20;
+        document.getElementById('dipActualUsed').value = localStorage.getItem('solar_dipActualUsed') || 1.5;
         document.getElementById('rechargeStart').value = localStorage.getItem('solar_rechargeStart') || "14:30";
         document.getElementById('rechargeEnd').value = localStorage.getItem('solar_rechargeEnd') || "16:00";
 
-        const allInputs = ['batCap', 'batRes', 'batMaxCharge', 'loadDay', 'loadNight', 'batStart', 'dipReservePct', 'rechargeStart', 'rechargeEnd'];
+        const allInputs = ['batCap', 'batRes', 'batMaxCharge', 'loadDay', 'loadNight', 'batStart', 'dipReservePct', 'dipActualUsed', 'rechargeStart', 'rechargeEnd'];
         allInputs.forEach(id => {
             document.getElementById(id).addEventListener('input', (e) => {
                 localStorage.setItem('solar_' + id, document.getElementById(id).value);
@@ -355,7 +359,7 @@
             } catch (error) {
                 document.getElementById('syncStatus').style.color = "#dc3545"; document.getElementById('syncStatus').innerText = "❌ ออฟไลน์";
             }
-            isUserOverrideCloudFlag = false; // กลับไปใช้ดาวเทียม
+            isUserOverrideCloudFlag = false; 
             updateSimulation();
         }
 
@@ -737,7 +741,7 @@
             document.getElementById('batResultDiv').innerHTML = chargeHtml + dischargeHtml;
         }
 
-        // --- Section 6: ระบบคำนวณระยะเวลาชาร์จคืน (Dip Refill Calculator) ---
+        // --- Section 6: ระบบคำนวณระยะเวลาชาร์จคืน (Dip Refill Calculator) แก้ใหม่ให้ยืดหยุ่น ---
         function calculateDipRefill() {
             let cap = parseFloat(document.getElementById('batCap').value) || 16;
             let maxChargeRate = parseFloat(document.getElementById('batMaxCharge').value) || 4.5;
@@ -745,10 +749,11 @@
             let sysEff = parseFloat(document.getElementById('sysEff').value) / 100;
 
             let reservePct = parseFloat(document.getElementById('dipReservePct').value) || 20;
+            let actualUsedKwh = parseFloat(document.getElementById('dipActualUsed').value) || 1.5;
             let rStartStr = document.getElementById('rechargeStart').value;
             let rEndStr = document.getElementById('rechargeEnd').value;
 
-            let reserveKwh = cap * (reservePct / 100);
+            let maxReserveKwh = cap * (reservePct / 100);
 
             let [sH, sM] = rStartStr.split(':').map(Number);
             let [eH, eM] = rEndStr.split(':').map(Number);
@@ -760,12 +765,18 @@
                 return;
             }
 
+            // แจ้งเตือนถ้าผู้ใช้กรอกไฟที่ใช้จริงเกินโควต้าที่ตั้งไว้
+            let warningHtml = "";
+            if (actualUsedKwh > maxReserveKwh) {
+                warningHtml = `<div style="color:#dc3545; font-size: 0.85em; font-weight:bold; margin-bottom: 8px;">⚠️ คำเตือน: ไฟที่คุณใช้จริง (${actualUsedKwh} kWh) สูงกว่าโควต้าสูงสุดที่คุณจำกัดไว้ (${maxReserveKwh.toFixed(1)} kWh) Inverter จะตัดไปดึงไฟหลวงแทนแล้วครับ!</div>`;
+            }
+
             let refilledKwh = 0;
             let rechargeMins = 0;
             let isFull = false;
             let finishMin = -1;
 
-            // จำลองลูปชาร์จแบบ นาที-ต่อ-นาที
+            // จำลองลูปชาร์จ
             for (let m = startMin; m < endMin; m++) {
                 let simHour = Math.floor(m / 60);
                 let simWeatherFactor = (hourlyWeatherData && !isUserOverrideCloudFlag) ? 1 - (hourlyWeatherData.cloud_cover[simHour] * 0.008) : (1 - cloudCover * 0.008);
@@ -786,13 +797,13 @@
 
                     let surplus = normalPV - loadDayKw;
                     if (surplus > 0) {
-                        let chargeRate = Math.min(surplus, maxChargeRate); // ชาร์จเข้าไม่เกิน Limit
-                        refilledKwh += chargeRate * (1/60); // 1 นาที
+                        let chargeRate = Math.min(surplus, maxChargeRate);
+                        refilledKwh += chargeRate * (1/60); 
                     }
                 }
 
                 rechargeMins++;
-                if (refilledKwh >= reserveKwh) {
+                if (refilledKwh >= actualUsedKwh) {
                     isFull = true;
                     finishMin = m;
                     break;
@@ -801,20 +812,22 @@
 
             // แสดงผล
             let html = `<h4 style="margin:0 0 10px 0; color:#d97706;">⚡ สรุปผลการชาร์จคืน (Refill Analysis)</h4>`;
+            html += warningHtml;
             html += `<div style="margin-bottom: 10px; font-size: 0.9em;">
-                ความจุที่ต้องชาร์จคืน (${reservePct}%): <strong style="color:#0056b3;">${reserveKwh.toFixed(2)} kWh</strong>
+                โควต้าสูงสุด (${reservePct}%): <strong>${maxReserveKwh.toFixed(2)} kWh</strong><br>
+                ไฟที่ต้องชาร์จคืน: <strong style="color:#0056b3; font-size:1.1em;">${actualUsedKwh.toFixed(2)} kWh</strong>
             </div>`;
 
             if (isFull) {
                 let fH = Math.floor(finishMin / 60);
                 let fM = finishMin % 60;
                 let timeStr = `${fH.toString().padStart(2,'0')}:${fM.toString().padStart(2,'0')} น.`;
-                html += `<div><span class="highlight-green">✅ ชาร์จเต็มทันเวลา!</span><br>
+                html += `<div><span class="highlight-green">✅ ชาร์จคืนครบถ้วนทันเวลา!</span><br>
                 ใช้เวลาชาร์จ: <strong style="font-size:1.2em;">${rechargeMins} นาที</strong><br>
                 เต็มเวลา: <strong>${timeStr}</strong> (ก่อนถึงเส้นตาย)</div>`;
             } else {
-                let filledPct = (refilledKwh / reserveKwh) * 100;
-                html += `<div><span class="highlight-red">❌ ชาร์จไม่ทันเส้นตาย!</span><br>
+                let filledPct = (refilledKwh / actualUsedKwh) * 100;
+                html += `<div><span class="highlight-red">❌ ชาร์จคืนไม่ทันเส้นตาย!</span><br>
                 ชาร์จคืนได้แค่: <strong>${refilledKwh.toFixed(2)} kWh (${filledPct.toFixed(1)}% ของที่ดึงไป)</strong><br>
                 ใช้เวลาไป: <strong>${rechargeMins} นาที</strong> (จนหมดเวลา)</div>`;
             }
