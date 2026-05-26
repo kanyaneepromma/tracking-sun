@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>ระบบจำลองโซล่าเซลล์ (V.12.0 Ultimate Survival)</title>
+    <title>ระบบจำลองโซล่าเซลล์ (V.12.1 Tonight Survival)</title>
     
     <link rel="icon" href="data:image/svg+xml,<svg xmlns=%22http://www.w3.org/2000/svg%22 viewBox=%220 0 100 100%22><text y=%22.9em%22 font-size=%2290%22>☀️</text></svg>">
     <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
@@ -200,11 +200,11 @@
                     <div class="bat-section-title">🏠 การใช้ไฟบ้าน (Load)</div>
                     <div class="spec-grid" style="grid-template-columns: 1fr; gap: 10px;">
                         <div class="spec-input">
-                            <label>ใช้ไฟกลางวันเฉลี่ย (วัตต์/W) <small>*ขณะมีแดด</small></label>
+                            <label>ใช้ไฟกลางวันเฉลี่ย (วัตต์/W)</label>
                             <input type="number" id="loadDay" value="1000" min="0" step="100">
                         </div>
                         <div class="spec-input">
-                            <label>ใช้ไฟกลางคืนเฉลี่ย (วัตต์/W) <small>*เปิดแอร์, ตู้เย็น</small></label>
+                            <label>ใช้ไฟกลางคืนเฉลี่ย (วัตต์/W)</label>
                             <input type="number" id="loadNight" value="1200" min="0" step="100">
                         </div>
                     </div>
@@ -274,7 +274,7 @@
                 <input type="checkbox" id="seasonalLoadToggle" checked>
                 <label for="seasonalLoadToggle">🌡️ เปิดจำลองการใช้ไฟตามฤดูกาล (หน้าร้อน +30%, หน้าหนาว -20%)</label>
             </div>
-            <p style="font-size: 0.85em; color: #666; margin-top: 5px; margin-bottom: 0;">กราฟแท่งคู่เปรียบเทียบ: <span style="color:#28a745; font-weight:bold;">สีเขียว = ผลิตไฟได้</span> | <span style="color:#fd7e14; font-weight:bold;">สีส้ม = บ้านใช้ไฟ</span> (ถ้าสีส้มสูงกว่าสีเขียว แปลว่าเดือนนั้นต้องจ่ายค่าไฟการไฟฟ้า)</p>
+            <p style="font-size: 0.85em; color: #666; margin-top: 5px; margin-bottom: 0;">กราฟแท่งคู่เปรียบเทียบ: <span style="color:#28a745; font-weight:bold;">สีเขียว = ผลิตไฟได้</span> | <span style="color:#fd7e14; font-weight:bold;">สีส้ม = บ้านใช้ไฟ</span></p>
             
             <div class="chart-container">
                 <canvas id="annualChartCanvas"></canvas>
@@ -284,23 +284,23 @@
 
     <div class="container">
         <div class="panel blackout-panel">
-            <h2>🔦 8. โหมดจำลองไฟดับฉุกเฉิน (Blackout Survival)</h2>
-            <p style="font-size: 0.9em; color: #aaa; margin-top: -5px;">ตัดขาดจากการไฟฟ้า 100% จำลองเหตุการณ์ว่าหากไฟการไฟฟ้าดับ บ้านคุณจะอยู่รอดได้กี่ชั่วโมงก่อนแบตจะหมด</p>
+            <h2>🔦 8. โหมดจำลองไฟดับ (Tonight's Blackout Survival)</h2>
+            <p style="font-size: 0.9em; color: #aaa; margin-top: -5px;">วิเคราะห์ว่าแบตที่มีอยู่ ณ ตอนที่ไฟดับ จะประคองบ้านคุณให้ "รอดจนถึงเช้าพรุ่งนี้" (ตอนที่แดดออก) ได้หรือไม่</p>
             
             <div style="display: flex; flex-wrap: wrap; gap: 20px;">
                 <div style="flex: 1; min-width: 280px;">
                     <div class="spec-grid" style="grid-template-columns: 1fr 1fr; gap: 10px;">
                         <div class="spec-input">
                             <label>เวลาที่ไฟหลวงดับ</label>
-                            <input type="time" id="blackoutStart" value="18:00">
+                            <input type="time" id="blackoutStart" value="16:49">
                         </div>
                         <div class="spec-input">
                             <label>แบตเตอรี่เหลือตอนไฟดับ (%)</label>
-                            <input type="number" id="blackoutBatPct" value="100" min="1" max="100">
+                            <input type="number" id="blackoutBatPct" value="76" min="1" max="100">
                         </div>
                         <div class="spec-input" style="grid-column: span 2;">
-                            <label>การใช้ไฟฉุกเฉิน (วัตต์/W) <small>*เช่น เปิดแค่พัดลม ทีวี แสงสว่าง ตู้เย็น = 800W</small></label>
-                            <input type="number" id="blackoutLoad" value="800" min="100" step="100">
+                            <label>การใช้ไฟฉุกเฉินคืนนี้ (วัตต์/W)</label>
+                            <input type="number" id="blackoutLoad" value="1000" min="100" step="100">
                         </div>
                     </div>
                 </div>
@@ -352,9 +352,11 @@
         document.getElementById('dipActualUsed').value = localStorage.getItem('solar_dipActualUsed') || 1.5;
         document.getElementById('rechargeStart').value = localStorage.getItem('solar_rechargeStart') || "14:30";
         document.getElementById('rechargeEnd').value = localStorage.getItem('solar_rechargeEnd') || "16:00";
-        document.getElementById('blackoutStart').value = localStorage.getItem('solar_blackoutStart') || "18:00";
-        document.getElementById('blackoutBatPct').value = localStorage.getItem('solar_blackoutBatPct') || 100;
-        document.getElementById('blackoutLoad').value = localStorage.getItem('solar_blackoutLoad') || 800;
+        
+        // Settings สำหรับ Blackout โหมดวันต่อวัน
+        document.getElementById('blackoutStart').value = localStorage.getItem('solar_blackoutStart') || "16:49";
+        document.getElementById('blackoutBatPct').value = localStorage.getItem('solar_blackoutBatPct') || 76;
+        document.getElementById('blackoutLoad').value = localStorage.getItem('solar_blackoutLoad') || 1000;
         
         let savedSeasonal = localStorage.getItem('solar_seasonalLoadToggle');
         if(savedSeasonal !== null) { document.getElementById('seasonalLoadToggle').checked = (savedSeasonal === 'true'); }
@@ -860,81 +862,65 @@
             document.getElementById('dipResultDiv').innerHTML = html;
         }
 
-        // --- NEW V.12.0: ฟังก์ชันคำนวณไฟดับ (Blackout Survival) ---
+        // --- แก้ไข V.12.1: โฟกัสเฉพาะ "คืนนี้" (Tonight's Survival) ---
         function calculateBlackout() {
             let cap = parseFloat(document.getElementById('batCap').value) || 16;
-            let sysEff = parseFloat(document.getElementById('sysEff').value) / 100;
             let bTimeStr = document.getElementById('blackoutStart').value || "18:00";
             let bPct = parseFloat(document.getElementById('blackoutBatPct').value) || 100;
             let bLoadKw = (parseFloat(document.getElementById('blackoutLoad').value) || 800) / 1000;
 
-            let [bH, bM] = bTimeStr.split(':').map(Number);
-            let startMin = bH * 60 + bM;
             let currentBatKwh = cap * (bPct / 100);
 
-            let survivedMins = 0;
-            let isDead = false;
-            let deadMin = -1;
+            let [bH, bM] = bTimeStr.split(':').map(Number);
+            let startTimeHours = bH + bM / 60;
 
-            // จำลองล่วงหน้าสูงสุด 72 ชั่วโมง (3 วัน) ถ้าเกินแปลว่ารอดเป็น Off-Grid ได้เลย
-            for (let offset = 0; offset < 72 * 60; offset++) {
-                let m = startMin + offset;
-                let dayOffset = Math.floor(m / (24 * 60));
-                let simHour = Math.floor((m % (24 * 60)) / 60);
-                let simMin = m % 60;
-
-                let simWeatherFactor = (hourlyWeatherData && !isUserOverrideCloudFlag) ? 1 - (hourlyWeatherData.cloud_cover[simHour] * 0.008) : (1 - cloudCover * 0.008);
-
-                let t = new Date(targetDate);
-                t.setDate(t.getDate() + dayOffset);
-                t.setHours(simHour, simMin, 0, 0);
-
-                let p = SunCalc.getPosition(t, lat, lng);
-                let aAlt = p.altitude * 180 / Math.PI;
-
-                let stepTotalKw = 0;
-                if (aAlt > 0) {
-                    let aAz = (p.azimuth * 180 / Math.PI + 180) % 360;
-                    arrays.forEach(arr => {
-                        let maxKw = (arr.count * arr.watt) / 1000;
-                        let bMult = 1 + (parseFloat(arr.bifacialGain) || 0);
-                        let factor = getIncidenceFactor(aAlt, aAz, arr.tilt, arr.heading);
-                        stepTotalKw += maxKw * factor * sysEff * bMult * simWeatherFactor;
-                    });
-                }
-
-                let netKw = stepTotalKw - bLoadKw;
-                currentBatKwh += netKw * (1/60);
-
-                if (currentBatKwh > cap) currentBatKwh = cap; // ชาร์จเต็มสุดได้เท่าความจุแบต
-                
-                if (currentBatKwh <= 0) {
-                    isDead = true;
-                    deadMin = m % (24 * 60);
-                    survivedMins = offset;
-                    break;
-                }
+            // หาระยะเวลาไปจนถึงพระอาทิตย์ขึ้น (Sunrise)
+            let targetSunrise = globalSunRiseTime; 
+            
+            // ถ้าไฟดับหลังเที่ยงคืนแต่ก่อนรุ่งเช้า (เช่น 03:00) เป้าหมายคือเช้าวันนี้
+            // แต่ถ้าไฟดับตอนบ่าย/เย็น (เช่น 16:49) เป้าหมายคือเช้าวันพรุ่งนี้
+            if (startTimeHours >= targetSunrise) {
+                targetSunrise += 24; 
             }
 
-            let html = `<h4 style="margin:0 0 10px 0; color:#ffc107;">🚨 ผลการเอาตัวรอด (Survival Report)</h4>`;
-            if (isDead) {
-                let dH = Math.floor(deadMin / 60);
-                let dM = deadMin % 60;
-                let timeStr = `${dH.toString().padStart(2,'0')}:${dM.toString().padStart(2,'0')} น.`;
-                let durationStr = `${Math.floor(survivedMins/60)} ชั่วโมง ${survivedMins%60} นาที`;
+            let durationHours = targetSunrise - startTimeHours;
+            let neededKwh = bLoadKw * durationHours;
 
-                html += `<div><span style="color:#ff6b6b; font-weight:bold;">❌ แบตเตอรี่หมดเกลี้ยง! บ้านมืดสนิท</span><br>
-                ระยะเวลาที่คุณเอาตัวรอดได้: <strong>${durationStr}</strong><br>
-                ระบบจะดับสนิทเวลาประมาณ: <strong style="font-size:1.2em;">${timeStr}</strong></div>`;
+            let html = `<h4 style="margin:0 0 10px 0; color:#ffc107;">🚨 ผลการเอาตัวรอดคืนนี้ (Tonight's Survival Report)</h4>`;
+            
+            let sH = Math.floor(targetSunrise % 24);
+            let sM = Math.round((targetSunrise % 1) * 60);
+            let sunriseStr = `${sH.toString().padStart(2,'0')}:${sM.toString().padStart(2,'0')} น.`;
+            
+            html += `<div style="font-size: 0.9em; margin-bottom: 10px;">
+                ระยะเวลาถึงเช้า (${sunriseStr}): <strong>${Math.floor(durationHours)} ชม. ${Math.round((durationHours%1)*60)} นาที</strong><br>
+                ไฟที่ต้องใช้คืนนี้: <strong style="color:#0056b3;">${neededKwh.toFixed(2)} kWh</strong> (คุณมี ${currentBatKwh.toFixed(2)} kWh)
+            </div>`;
+
+            if (currentBatKwh >= neededKwh) {
+                let leftKwh = currentBatKwh - neededKwh;
+                let leftPct = (leftKwh / cap) * 100;
+                html += `<div><span style="color:#28a745; font-weight:bold;">✅ รอดถึงเช้าแน่นอน! แดดจะมาช่วยทัน</span><br>
+                แบตเตอรี่จะเหลือตอนแดดออกประมาณ: <strong>${leftPct.toFixed(1)}% (${leftKwh.toFixed(2)} kWh)</strong></div>`;
             } else {
-                html += `<div><span style="color:#28a745; font-weight:bold;">✅ รอด! เป็น Off-Grid สมบูรณ์แบบ</span><br>
-                แดดในวันถัดไปชาร์จแบตให้คุณได้เร็วกว่าที่คุณดึงไฟฉุกเฉินไปใช้ คุณสามารถอยู่รอดแบบนี้ได้เรื่อยๆ ตราบใดที่ยังคุมไฟแค่นี้ครับ!</div>`;
+                let surviveHours = currentBatKwh / bLoadKw;
+                let deadTime = startTimeHours + surviveHours;
+                if (deadTime >= 24) deadTime -= 24;
+                
+                let dH = Math.floor(deadTime);
+                let dM = Math.round((deadTime % 1) * 60);
+                if(dM === 60) { dH++; dM = 0; }
+                if(dH === 24) dH = 0;
+
+                let timeStr = `${dH.toString().padStart(2, '0')}:${dM.toString().padStart(2, '0')} น.`;
+                html += `<div><span style="color:#ff6b6b; font-weight:bold;">❌ แบตไม่พอ! บ้านจะมืดก่อนรุ่งเช้า</span><br>
+                ไฟจะดับสนิทเวลาประมาณ: <strong style="font-size:1.2em;">${timeStr}</strong><br>
+                <small style="color:#aaa;">(รอดได้แค่ ${Math.floor(surviveHours)} ชม. ${Math.round((surviveHours%1)*60)} นาที)</small></div>`;
             }
 
             document.getElementById('blackoutResultDiv').innerHTML = html;
         }
 
-        // --- อัปเกรด V.12.0: ระบบโหลดตามฤดูกาล ---
         function updateAnnualChart() {
             const monthlyKwh = [];
             const monthlyCons = [];
@@ -945,10 +931,9 @@
             let totalYear = 0;
             let systemDerate = parseFloat(document.getElementById('sysEff').value) / 100;
             
-            // อ่านค่าโหลดรายวัน
             let loadDayKw = (parseFloat(document.getElementById('loadDay').value) || 0) / 1000;
             let loadNightKw = (parseFloat(document.getElementById('loadNight').value) || 0) / 1000;
-            let baseDailyLoad = (loadDayKw * 12) + (loadNightKw * 12); // ประเมินคร่าวๆ ว่าเปิดกลางวัน 12 ชม. กลางคืน 12 ชม.
+            let baseDailyLoad = (loadDayKw * 12) + (loadNightKw * 12); 
             let isSeasonalLoad = document.getElementById('seasonalLoadToggle').checked;
 
             for(let mo = 0; mo < 12; mo++) {
@@ -974,11 +959,10 @@
                 monthlyKwh.push(monthTotal);
                 totalYear += monthTotal;
                 
-                // คำนวณ Load รายเดือน
                 let loadMultiplier = 1.0;
                 if (isSeasonalLoad) {
-                    if ([2, 3, 4].includes(mo)) loadMultiplier = 1.3; // มี.ค. เม.ย. พ.ค. ร้อนจัดแอร์ทำงานหนัก (+30%)
-                    else if ([10, 11, 0, 1].includes(mo)) loadMultiplier = 0.8; // พ.ย. ธ.ค. ม.ค. ก.พ. อากาศเย็น (-20%)
+                    if ([2, 3, 4].includes(mo)) loadMultiplier = 1.3; 
+                    else if ([10, 11, 0, 1].includes(mo)) loadMultiplier = 0.8; 
                 }
                 monthlyCons.push(baseDailyLoad * daysInMonth[mo] * loadMultiplier);
             }
